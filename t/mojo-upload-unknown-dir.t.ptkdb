@@ -1,0 +1,16 @@
+$files = {
+           '_<t/mojo-upload-unknown-dir.t' => [
+                                                {
+                                                  'line' => '34',
+                                                  'value' => '1',
+                                                  'expr' => undef,
+                                                  'text' => '$f->upload;
+',
+                                                  'type' => 'user',
+                                                  'fname' => 't/mojo-upload-unknown-dir.t'
+                                                }
+                                              ]
+         };
+$expr_list = [];
+$eval_saved_text = undef;
+$main_win_geometry = '800x600+0+0';

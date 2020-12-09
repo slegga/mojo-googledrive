@@ -1,0 +1,40 @@
+$files = {
+           '_<lib/Mojo/GoogleDrive/Mirror/File.pm' => [
+                                                        {
+                                                          'type' => 'user',
+                                                          'text' => '    my $metadata;
+',
+                                                          'value' => '1',
+                                                          'fname' => 'lib/Mojo/GoogleDrive/Mirror/File.pm',
+                                                          'line' => '102',
+                                                          'expr' => undef
+                                                        }
+                                                      ],
+           '_<script/test-mojo-google-drive.pl' => [
+                                                     {
+                                                       'type' => 'user',
+                                                       'text' => 'my $metadata = $o->file(\'testfil.txt\')->upload->metadata;
+',
+                                                       'value' => '1',
+                                                       'fname' => 'script/test-mojo-google-drive.pl',
+                                                       'line' => '8',
+                                                       'expr' => undef
+                                                     }
+                                                   ]
+         };
+$expr_list = [
+               {
+                 'expr' => '$self',
+                 'depth' => -1
+               },
+               {
+                 'expr' => '$_',
+                 'depth' => -1
+               },
+               {
+                 'expr' => '$metadata',
+                 'depth' => -1
+               }
+             ];
+$eval_saved_text = undef;
+$main_win_geometry = '960x1015+960+0';
