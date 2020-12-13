@@ -10,6 +10,7 @@ use Mojo::Collection;
 use Mojo::GoogleDrive::Mirror;
 use open qw(:std :utf8);
 use utf8;
+#use Mojo::Util 'url_escape';
 =head1 NAME
 
 Mojo::GoogleDrive::Mirror::File - Google Drive file object
@@ -256,6 +257,7 @@ sub path_resolve($self) {
         $i++;
         say  "Looking up part $part (folder_id=$folder_id)" if $ENV{MOJO_DEBUG};
         my $dir;
+        next if ! $part;
         if (exists $metadata_all{$tmppath->to_string}) {
             $dir = $self->{mgm}->file_from_metadata($metadata_all{$tmppath->to_string});
         }
@@ -277,8 +279,9 @@ sub path_resolve($self) {
             # return Mojo::Collection->new(@return) ;
         } else {
 #        die Dumper $children;# if ! ref $children eq 'ARRAY';
-
+die if !$part;
             for my $child (@children) {
+                say Dumper $child->metadata if ! $child->metadata->{name};
                 say "Found child ", $child->metadata->{name} if $ENV{MOJO_DEBUG};
                 if ( $child->metadata->{name} eq $part ) {
                     $parent_id = $child->metadata->{id};
@@ -332,7 +335,7 @@ sub list($self, %options) {
     }
 
     $opts->{q} = q_and($opts->{q},"trashed = false");
-
+    $opts->{fields} = join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
     my @children = ();
     delete $opts->{dir_only};
     delete $opts->{name};
@@ -383,6 +386,32 @@ sub make_path($self) {
         $self->metadata($meta); # the last item will have the meta data
     }
     return $self;
+}
+
+=head2 download
+
+    my $mgm = Mojo::GoogleDrive::Mirror->new(local_root=>$ENV{HOME});
+    my $f = $mgm->file('/remotefile.txt');
+    $f->download;
+
+=cut
+
+sub download($self) {
+    my $meta =  $self->get_metadata;
+    if (exists $meta->{id}) {
+        my $id = $meta->{id};
+        my $urlstring = Mojo::URL->new($self->mgm->api_file_url.$id)->query(alt => 'media')->to_string;
+        my $content = $self->mgm->http_request('get',$urlstring);  #      GET https://www.googleapis.com/drive/v3/files/fileId
+        if ( $content ) {
+            path($self->pathfile)->spurt( $content );
+            return $self;
+        }
+    } elsif ($self->{pathfile}) {
+        ...;
+    } else {
+        ...;
+    }
+    return ;
 }
 
 # NON SELF UTILITY SUBS

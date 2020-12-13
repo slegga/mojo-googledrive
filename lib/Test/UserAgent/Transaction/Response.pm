@@ -6,7 +6,7 @@ use Data::Dumper;
 use Mojo::JSON qw/encode_json to_json from_json true false/;
 use Mojo::Util qw /url_unescape/;
 use Mojo::File 'path';
-
+use Encode qw /decode_utf8/;
 
 has 'ua';  # Test::UserAgent ?
 has 'req_res';
@@ -60,60 +60,86 @@ sub body($self) {
 #    my $ua = $self->ua;
 #    warn "No valid return found. ua: ".  ref $ua;
     my $hash_ret={};
+    my $mojourl = Mojo::URL->new($self->ua->url);
     if (lc($self->ua->method) eq 'get') {
-        if ( $self->ua->url =~ m|https:\/\/www.googleapis.com\/drive\/v3\/files\/(\w+)\?fields\=(.+)|) {
-            # id%2Ckind%2Cname%2CmimeType%2Cparents%2CmodifiedTime%2Ctrashed%2CexplicitlyTrashed
-            my ($file_id,$fields)=($1,$2);
-            if ($file_id eq 'root') {
-                my $root = {id=>'/', kind=>"drive#file", name=>'Min disk', mimeType=>'application/vnd.google-apps.folder',trashed=>0,explicitlyTrashed=>0,modifiedTime=>'2013-10-19T11:06:57.289Z'};
-                return encode_json($root);
-            #https://www.googleapis.com/drive/v3/files/?q=mimeType+%3D+%27application%2Fvnd.google-apps.folder%27+and+%27t%2Fremote%2F%27+in+parents+and+name+%3D+%27t%27
-            } else {
-                die "No data for GET: $file_id:   $key";
-            }
-        } elsif ($self->ua->url =~ m|https:\/\/www.googleapis.com\/drive\/v3\/files\/\?q\=(.+)|) {
-            my $attr = url_unescape($1);
-            my @a = split/\+and\+/,$attr;
-            my %crit;
-            for my $x (@a) {
-                if (my($key,$type,$value)= $x =~/^'?(.*?)'?\+(=|in)\+'?(.*?)'?$/) {
-                    if ($type eq 'in') {
-                        $type = $key;
-                        $key = $value;
-                        $value = $type;
-                        $crit{$key} = $value;
-                    } elsif($type='=') {
-                        $crit{$key} = $value;
-                    }
-                    else {
-                        ...;
+        if ( $mojourl->host eq 'www.googleapis.com') {
+            if ( $mojourl->path =~'\/drive\/v3\/files\/(\w+)' ) {
+                if ( exists $mojourl->query->to_hash->{fields} && ! exists $mojourl->query->to_hash->{q} ) {
+                    # id%2Ckind%2Cname%2CmimeType%2Cparents%2CmodifiedTime%2Ctrashed%2CexplicitlyTrashed
+                    my ($file_id,$fields)=($1,$mojourl->query->to_hash->{fields});
+                    if ($file_id eq 'root') {
+                        my $root = {id=>'/', kind=>"drive#file", name=>'Min disk', mimeType=>'application/vnd.google-apps.folder',trashed=>0,explicitlyTrashed=>0,modifiedTime=>'2013-10-19T11:06:57.289Z'};
+                        return encode_json($root);
+                    #https://www.googleapis.com/drive/v3/files/?q=mimeType+%3D+%27application%2Fvnd.google-apps.folder%27+and+%27t%2Fremote%2F%27+in+parents+and+name+%3D+%27t%27
+                    } else {
+                        die "No data for GET: $file_id:   $key";
                     }
                 } else {
                     ...;
                 }
-            }
-#            die Dumper \%crit;
-            my $allfiles = path($self->ua->real_remote_root)->list_tree({dir=>1});
-            if ($crit{mimeType} && $crit{mimeType} eq 'application/vnd.google-apps.folder') {
-                $allfiles = $allfiles->grep(sub{-d "$_"});
-            }
-            if($crit{parents}) {
-                my $re = quotemeta($crit{parents});
-                if ($crit{parents} eq '/' || $crit{parents} eq 'root') {
-                    $re= quotemeta(path($self->ua->real_remote_root)->to_string).'.';
+            } elsif ( $mojourl->path eq '/drive/v3/files/') {
+                if ($mojourl->query->to_hash->{q}) {
+                    my $attr = url_unescape($mojourl->query->to_hash->{q});
+                    my @a = split/ and /,$attr;
+                    my %crit;
+                    for my $x (@a) {
+#warn $x;
+                        if (my($key,$type,$value)= $x =~/^'?(.*?)'? (=|in) '?(.*?)'?$/) {
+                            if ($type eq 'in') {
+                                $type = $key;
+                                $key = $value;
+                                $value = $type;
+                                $crit{$key} = $value;
+                            } elsif($type='=') {
+                                $crit{$key} = $value;
+                            }
+                            else {
+                                ...;
+                            }
+                        } else {
+                            say STDERR "$x";
+
+                            ...;
+                        }
+                    }
+        #            die Dumper \%crit;
+                    my $allfiles = path($self->ua->real_remote_root)->list_tree({dir=>1});
+                    if ($crit{mimeType} && $crit{mimeType} eq 'application/vnd.google-apps.folder') {
+                        $allfiles = $allfiles->grep(sub{-d "$_"});
+                    }
+                    if($crit{parents}) {
+                        my $re = quotemeta($crit{parents});
+                        if ($crit{parents} eq '/' || $crit{parents} eq 'root') {
+                            $re= quotemeta(path($self->ua->real_remote_root)->to_string).'.';
+                        }
+                        $allfiles = $allfiles->grep(sub{ "$_"=~/$re/});
+                    }
+                    if($crit{name} ) {
+#warn join(',',$allfiles->each);
+                        $allfiles = $allfiles->grep(sub{ decode_utf8($_->basename) eq $crit{name}});
+#warn join(',',$allfiles->each);
+                    }
+                    my $root = $self->ua->real_remote_root;
+                    if($root =~/\/$/) {
+                        chop($root);
+                    }
+                    my $root_length=length($root);
+                    return to_json({files=>$allfiles->map(sub{$self->_metadata(substr("$_",$root_length))})->to_array});
                 }
-                $allfiles = $allfiles->grep(sub{ "$_"=~/$re/});
+                else {
+                    ...;
+                }
+            } elsif($self->ua->url =~ m|https:\/\/www.googleapis.com\/drive\/v3\/files\/(.+)\?|) {
+                my $id = $1;
+
+                my $file = $self->ua->real_remote_root.$id;
+                path($file)->copy($self->ua->local_root.$id);
+                return to_json({id=>$id});
+            } else {
+                die $mojourl->host. " No value for key: ".$key;
             }
-            if($crit{name} ) {
-                $allfiles = $allfiles->grep(sub{ $_->basename eq $crit{name}});
-            }
-            my $root = $self->ua->real_remote_root;
-            if($root =~/\/$/) {
-                chop($root);
-            }
-            my $root_length=length($root);
-            return to_json({files=>$allfiles->map(sub{$self->_metadata(substr("$_",$root_length))})->to_array});
         } else {
+#https://www.googleapis.com/drive/v3/files/?fields=files%2Fid%2Cfiles%2Fkind%2Cfiles%2Fname%2Cfiles%2FmimeType%2Cfiles%2Fparents%2Cfiles%2FmodifiedTime%2Cfiles%2Ftrashed%2Cfiles%2FexplicitlyTrashed%2Cfiles%2Fmd5Checksum&q=%27%2F%27+in+parents+and+name+%3D+%27file.txt%27+and+trashed+%3D+false¤
             die "No value for key: ".$key;
         }
     } elsif($self->ua->method eq 'post') {

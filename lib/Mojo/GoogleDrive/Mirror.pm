@@ -149,6 +149,7 @@ sub http_request($self, $method,$url,$header='',@) {
         die "@_     " . $tx->res->body;
     }
     die Dumper $tx->res if $code > 299;
+#    die Dumper $tx->res->body;
     my $return =  decode_json($tx->res->body);
 
     return $return

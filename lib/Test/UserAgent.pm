@@ -28,6 +28,7 @@ For unittest without accessing external apis.
 =cut
 
 has 'real_remote_root';
+has 'local_root';
 has 'config_file';
 has 'method';
 has 'url';

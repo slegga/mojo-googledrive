@@ -25,13 +25,12 @@ say STDERR "\n";
 
 #p $metadata;
 like ($metadata->{id},qr{\w},'id is set');
-
 my $root = $o->file('/');
 my @objects =  $root->list->map(sub{$_->metadata})->each;
 p @objects;
 is (@objects,1,'file found');
 
-my @pathfiles = $f->path_resolve->map(sub{$_->metadata->{id}})->each;
+my @pathfiles = $f->path_resolve->grep(sub{$_->metadata})->map(sub{$_->metadata->{id}})->each;
 is @pathfiles,2,'Number og objects';
 p @pathfiles;
 is_deeply (\@pathfiles,['/','/fileæøå.txt'],'resolve_path');

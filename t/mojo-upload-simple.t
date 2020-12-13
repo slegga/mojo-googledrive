@@ -16,7 +16,7 @@ use Data::Dumper;
 
 
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'));
-my $f= $o->file('file.txt');
+my $f= $o->file('/file.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
 say STDERR "\n";
