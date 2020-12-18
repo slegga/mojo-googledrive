@@ -7,6 +7,8 @@ use Test::More;
 use Test::UserAgent;
 use Data::Dumper;
 
+
+
 # TEST UPLOAD
 
 `rm -r t/local/*`;
@@ -20,8 +22,6 @@ my $f= $o->file('/file.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
 say STDERR "\n";
-
-
 
 #p $metadata;
 like ($metadata->{id},qr{\w},'id is set');

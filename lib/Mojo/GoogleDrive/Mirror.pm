@@ -150,7 +150,12 @@ sub http_request($self, $method,$url,$header='',@) {
     }
     die Dumper $tx->res if $code > 299;
 #    die Dumper $tx->res->body;
-    my $return =  decode_json($tx->res->body);
+    my $return;
+    if ($url =~/alt\=media/) {
+        $return = $tx->res->body;
+    } else {
+        $return =  decode_json($tx->res->body);
+    }
 
     return $return
 }

@@ -7,7 +7,7 @@ use Mojo::File qw/path/;
 use Mojo::Date;
 use File::MMagic;
 use Digest::MD5::File qw(file_md5_base64);
-
+use Encode qw/decode_utf8/;
 
 
 =head1 NAME

@@ -47,6 +47,7 @@ our %metadata_all=();
 has 'pathfile';
 has 'remote_root' => '/';
 has 'local_root';# => "$ENV{HOME}/googledrive/";
+has 'last_message';
 #has 'api_file_url' => "https://www.googleapis.com/drive/v3/files/";
 #has 'api_upload_url' => "https://www.googleapis.com/upload/drive/v3/files/";
 #has 'oauth';     #     => OAuth::Cmdline::GoogleDrive->new();
@@ -222,7 +223,7 @@ sub file_mime_type($self) {
 
     $collectonoffiles = $file->path_resolve;
 
-Get File objects for each element in path include
+Get File objects for each element in path include. First element is root and last is the actual file.
 
 
 =cut
@@ -403,7 +404,8 @@ sub download($self) {
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url.$id)->query(alt => 'media')->to_string;
         my $content = $self->mgm->http_request('get',$urlstring);  #      GET https://www.googleapis.com/drive/v3/files/fileId
         if ( $content ) {
-            path($self->pathfile)->spurt( $content );
+            $self->lfile->dirname->make_path;
+            $self->lfile->spurt( $content );
             return $self;
         }
     } elsif ($self->{pathfile}) {
@@ -413,6 +415,38 @@ sub download($self) {
     }
     return ;
 }
+
+
+=head2 remove
+
+Delete file locally and remote;
+
+=cut
+
+sub remove($self) {
+    my $message='';
+    $self->last_message='';
+    if ($self->lfile->to_string -f) {
+        $self->lfile->remove;
+        $message .= 'Removed local file: '.$self->lfile->to_string;
+    }
+    my $meta = $self->get_metdata;
+    if (! $meta->{id}) {
+        $meta = $self->resolve_path->last->get_metadata->{id};
+    }
+    if ($meta->{id}) {
+        my $res = $self->mgm->http_request('delete',$self->mgm->api_file_url . $id);
+        die $res if $res; #empty if success
+        $message .= 'Removed remote file: '.$self->rfile->to_string;
+        my $delete_file = $self->mgm->file($self->delete_archive)->lfile;
+        my $delete_content = $delete_file->slurp;
+        $self->mgm->file($self->delete_archive)->lfile->to_string.';'. $self->pathfile);
+    } else {
+        $message .= 'Remote file not found '. $self->rfile->to_string;
+    }
+    return $self->last_message($message);
+}
+
 
 # NON SELF UTILITY SUBS
 

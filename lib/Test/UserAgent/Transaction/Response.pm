@@ -64,7 +64,7 @@ sub body($self) {
     if (lc($self->ua->method) eq 'get') {
         if ( $mojourl->host eq 'www.googleapis.com') {
             if ( $mojourl->path =~'\/drive\/v3\/files\/(\w+)' ) {
-                if ( exists $mojourl->query->to_hash->{fields} && ! exists $mojourl->query->to_hash->{q} ) {
+                if ( exists $mojourl->query->to_hash->{fields} && ! exists $mojourl->query->to_hash->{q} && ! exists $mojourl->query->to_hash->{alt}) {
                     # id%2Ckind%2Cname%2CmimeType%2Cparents%2CmodifiedTime%2Ctrashed%2CexplicitlyTrashed
                     my ($file_id,$fields)=($1,$mojourl->query->to_hash->{fields});
                     if ($file_id eq 'root') {
@@ -91,7 +91,7 @@ sub body($self) {
                                 $value = $type;
                                 $crit{$key} = $value;
                             } elsif($type='=') {
-                                $crit{$key} = $value;
+                                $crit{$key} = url_unescape($value);
                             }
                             else {
                                 ...;
@@ -130,11 +130,16 @@ sub body($self) {
                     ...;
                 }
             } elsif($self->ua->url =~ m|https:\/\/www.googleapis.com\/drive\/v3\/files\/(.+)\?|) {
-                my $id = $1;
+                my $id = $1 or die "No id: ".$self->ua->url;
+                $id = decode_utf8(url_unescape($id));
+die "Missing local_root" if ! $self->ua->local_root;
+               my $file = $self->ua->real_remote_root.$id;
+                if ($self->ua->url =~/alt=media/){ # TODO check for alt=media
 
-                my $file = $self->ua->real_remote_root.$id;
-                path($file)->copy($self->ua->local_root.$id);
-                return to_json({id=>$id});
+                    return path($file)->slurp;
+                }else {
+                    return to_json($self->_metadata($file));
+                }
             } else {
                 die $mojourl->host. " No value for key: ".$key;
             }

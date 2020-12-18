@@ -1,1 +1,6 @@
 .prove
+*.ptkdb
+*.swp
+*.tmp
+t/local/*
+t/remote/*
