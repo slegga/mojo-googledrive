@@ -120,10 +120,11 @@ sub get_metadata($self) {
         # fill kind,mimeType,parents,trashed,modifiedTime,explicitlyTrashed
         $metadata={
             kind=>'drive#file',
-            mimeType=>$self->file_mime_type,
             trashed=>false,
             explicitlyTrashed=>false,
         };
+        $metadata->{mimeType}=$self->file_mime_type if -e $self->pathfile;
+
         $metadata->{name} = path($self->rfile)->basename;
         if (exists $pathobj[$#pathobj -1]) {
             $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
@@ -242,7 +243,7 @@ sub path_resolve($self) {
     if(exists $metadata_all{'/'}) {
         $root_meta = $metadata_all{'/'};
     }
-    if (!$id) {
+    if (!$root_meta->{id}) {
         my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> INTERESTING_FIELDS );
         say $url;
         $root_meta = $self->mgm->http_request('get',$url,'');
@@ -291,16 +292,22 @@ die if !$part;
                 }
             }
         }
-#        my $msg = "Child $part not found";
-#        $self->error($msg);
-#        ERROR $msg;
-#        die $msg;
-#        return;
 
     }
     #die Dumper \@return;
-     @return = map{ $self->{mgm}->file_from_metadata($_)} @return;
-    return Mojo::Collection->new(@return);
+    my @return2;
+    my $pathfile='';
+    for my $r (@return) {
+#        next if ! keys %$r;
+        if ( exists $r->{name}) {
+            $pathfile .= $r->{name};
+        } else {
+            $pathfile=undef;
+        }
+        push  @return2, $self->{mgm}->file_from_metadata( $r, pathfile=>$pathfile );
+        $pathfile .= '/';
+    }
+    return Mojo::Collection->new(@return2);
 }
 
 =head2 list
@@ -425,22 +432,23 @@ Delete file locally and remote;
 
 sub remove($self) {
     my $message='';
-    $self->last_message='';
-    if ($self->lfile->to_string -f) {
+    die "Missing patfile" if !$self->pathfile;
+    $self->last_message('');
+    if ( -f $self->lfile->to_string ) {
         $self->lfile->remove;
         $message .= 'Removed local file: '.$self->lfile->to_string;
     }
-    my $meta = $self->get_metdata;
+    my $meta = $self->get_metadata;
     if (! $meta->{id}) {
-        $meta = $self->resolve_path->last->get_metadata->{id};
+        $meta = $self->path_resolve->last->get_metadata;
     }
     if ($meta->{id}) {
-        my $res = $self->mgm->http_request('delete',$self->mgm->api_file_url . $id);
+        my $res = $self->mgm->http_request('delete',$self->mgm->api_file_url . $meta->{id});
         die $res if $res; #empty if success
         $message .= 'Removed remote file: '.$self->rfile->to_string;
         my $delete_file = $self->mgm->file($self->delete_archive)->lfile;
         my $delete_content = $delete_file->slurp;
-        $self->mgm->file($self->delete_archive)->lfile->to_string.';'. $self->pathfile);
+        $self->mgm->file($self->delete_archive)->lfile->to_string.';'. $self->pathfile;
     } else {
         $message .= 'Remote file not found '. $self->rfile->to_string;
     }

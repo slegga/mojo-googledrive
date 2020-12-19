@@ -151,10 +151,13 @@ sub http_request($self, $method,$url,$header='',@) {
     die Dumper $tx->res if $code > 299;
 #    die Dumper $tx->res->body;
     my $return;
+    my $body = $tx->res->body;
     if ($url =~/alt\=media/) {
-        $return = $tx->res->body;
+        $return = $body;
+    } elsif (! defined $body || length($body) ==0 ) {
+        return undef;
     } else {
-        $return =  decode_json($tx->res->body);
+        $return = decode_json($body);
     }
 
     return $return

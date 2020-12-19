@@ -31,7 +31,7 @@ say STDERR "\n";
 ok (! exists $metadata->{id},'id is NOT set');
 
 my @pathfiles = $f->path_resolve->map(sub{defined $_ && $_->metadata ?$_->metadata->{id} : undef })->each;
-is @pathfiles,3,'Number og objects';
+ is @pathfiles,3,'Number og objects';
 p @pathfiles;
 is_deeply (\@pathfiles,['/',undef,undef],'resolve_path');
 $f->upload;
