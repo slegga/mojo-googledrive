@@ -86,6 +86,23 @@ sub file {
 
 }
 
+=head2 sync
+
+Calculate diff with newly changed files local and remote. If both changes keep remote and overwrite local change.
+
+=cut
+
+sub sync($self) {
+    # Calcutale diff
+    # newly changed remote
+    ...;
+    # newly local changes
+
+    # resolve conflicts
+    ...;
+    # diff resolve
+}
+
 =head2 get_common_hash
 
 A semi internal method to secure that new generated file object as the minimum of attributes.

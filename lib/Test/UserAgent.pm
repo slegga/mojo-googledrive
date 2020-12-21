@@ -70,6 +70,10 @@ sub get($self,$url,@) {
     return Test::UserAgent::Transaction->new( ua => $self );
 }
 
+sub patch($self,$url,@) {
+    ...;
+}
+
 =head2 post
 
 =cut

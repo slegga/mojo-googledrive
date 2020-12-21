@@ -159,7 +159,11 @@ sub upload {
     }
     my $metadata = $self->get_metadata;
     my $mcontent={name=>$metadata->{name}};
-    $mcontent->{id} = $metadata->{id} if exists $metadata->{id} && $metadata->{id};
+    my $http_method = 'post';
+    if (exists $metadata->{id} && $metadata->{id}) {
+        $mcontent->{id} = $metadata->{id} ;
+        $http_method = 'patch';
+    }
     $mcontent->{parents} = $metadata->{parents} if exists $metadata->{parents} && $metadata->{parents};
 
     # create missing folders if not exists
@@ -183,7 +187,7 @@ sub upload {
     my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', 'Content-Length'=>$byte_size, content => to_json($mcontent),};
     my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
     say $urlstring;
-    my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,   multipart => [
+    my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header ,   multipart => [
     $metapart,
     {
       'Content-Type' => $self->file_mime_type,
