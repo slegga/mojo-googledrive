@@ -9,6 +9,8 @@ use Data::Dumper;
 
 # TEST UPLOAD
 
+path('t/local')->make_path;
+path('t/remote')->make_path;
 `rm -r t/local/*`;
 `rm -r t/remote/*`;
 `echo local-file >t/local/file.txt`;

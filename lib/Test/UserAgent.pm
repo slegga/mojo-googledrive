@@ -70,8 +70,19 @@ sub get($self,$url,@) {
     return Test::UserAgent::Transaction->new( ua => $self );
 }
 
+=head2 patch
+
+Handle update of file if file exists.
+
+=cut
+
 sub patch($self,$url,@) {
-    ...;
+    $self->method('patch');
+    shift @_;# remove self
+    shift @_;# remove url
+    my @rest = @_;
+    my $return = $self->post($url,@rest,'method=patch');
+    return Test::UserAgent::Transaction->new( ua => $self );
 }
 
 =head2 post
@@ -117,9 +128,11 @@ sub post($self,$url,@) {
                     warn "$param   ".Dumper $v;
                     ...;
                 }
+            } elsif ($v eq 'method=patch') {
+                $self->method('patch');
             }
             else {
-                die "Unknown $i  $v  ".ref $v;
+                die "Unknown '$i'  '$v'  ".ref $v;
             }
 
         }

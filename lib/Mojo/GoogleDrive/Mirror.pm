@@ -168,7 +168,9 @@ sub http_request($self, $method,$url,$header='',@) {
     die Dumper $tx->res if $code > 299;
 #    die Dumper $tx->res->body;
     my $return;
-    my $body = $tx->res->body;
+#    return if $method eq 'patch';
+    my $body;
+    $body = $tx->res->body;
     if ($url =~/alt\=media/) {
         $return = $body;
     } elsif (! defined $body || length($body) ==0 ) {
