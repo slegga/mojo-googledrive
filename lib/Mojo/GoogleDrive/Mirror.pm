@@ -8,7 +8,10 @@ use Mojo::GoogleDrive::Mirror::File;
 use Mojo::UserAgent;
 use Data::Dumper;
 use OAuth::Cmdline::GoogleDrive;
-use Mojo::JSON qw /decode_json encode_json/;
+use Mojo::JSON qw /decode_json encode_json true false/;
+use Mojo::Date;
+use Digest::MD5 qw /md5_hex/;
+
 =head1 NAME
 
 Mojo::GoogleDrive::Mirror
@@ -58,6 +61,17 @@ has sync_direction => 'both'; # both ways clound wins if in conflict
 has sync_conflict_master =>'cloud';
 has ua =>sub {Mojo::UserAgent->new};
 
+=head2 INTERESTING_FIELDS
+
+Constant set to minimum meta data for a file.
+
+=cut
+
+sub INTERESTING_FIELDS {
+    return 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
+}
+
+
 =head2 new
 
     my $gd = Mojo::GoogleDrive::Mirror->new(local_root=>$ENV{HOME} . '/gdtest');
@@ -95,12 +109,135 @@ Calculate diff with newly changed files local and remote. If both changes keep r
 sub sync($self) {
     # Calcutale diff
     # newly changed remote
-    ...;
+
+
+if(0) { # turn of query remote when develop local
+  my @files = $self->_get_remote_files(undef);
+
+
+    #get root
+    my $url = Mojo::URL->new($self->api_file_url)->path('root')->query(fields => 'id,name');
+
+    say $url;
+    my $root = $self->http_request('get',$url,'');
+
+    my $opts={};
+    my %id2pathfile = ($root->{id} => '');
+    $opts->{q} = '';
+    $opts->{fields} = join(',', map{"files/$_"} split(',','id,name,parents,kind') );#INTERESTING_FIELDS;
+    $opts->{q} = q_and($opts->{q}, "trashed = false" );
+    $opts->{q} = q_and($opts->{q}, "mimeType = 'application/vnd.google-apps.folder'");
+    $opts->{pageSize} = 1000;
+    $url = Mojo::URL->new($self->api_file_url)->query($opts);
+    my $remote_folders = $self->http_request('get',$url,'');
+    say scalar @{ $remote_folders->{files} };
+
+    #build all folder structures
+
+    my @folders = @{$remote_folders->{files}};
+    my $j =0;
+    while (@folders && $j<6) {
+        for my $i(reverse  0 .. $#folders) {
+            for my $k(keys %id2pathfile) {
+                next if ! $k;
+                next if ! $folders[$i];
+                if (! exists $folders[$i]->{parents} || ! $folders[$i]->{parents}->[0]) {
+#                    say "No parent: ".encode_json($folders[$i]);
+                    next;
+                }
+                elsif ($folders[$i]->{parents}->[0] eq $k) {
+                    $id2pathfile{$folders[$i]->{id}} = $id2pathfile{$k}.'/'. $folders[$i]->{name};
+                    delete $folders[$i];
+                }
+            }
+        }
+        $j++;
+    }
+#    die Dumper \%id2pathfile;
+
+    # get pathfile value
+    for my $f (@files) {
+        $f->{modifiedTime} = Mojo::Date->new($f->{modifiedTime});
+        die encode_json($f) if ! exists $f->{parents}->[0];
+        $f->{pathfile} = $id2pathfile{$f->{parents}->[0]}.'/'.$f->{name};
+    }
+} #if 0
     # newly local changes
+        my %lc;  # {pathfile, md5Checksum, modifiedTime}
+
+     %lc = map { my @s = stat($_);$_=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+     for my $k (keys %lc) {
+        $lc{$k}{md5Checksum} = md5_hex($k);
+     }
+    say Dumper \%lc;
+;
 
     # resolve conflicts
-    ...;
+
     # diff resolve
+}
+
+=head2 clean_remote_duplicates
+
+Look for duplicates on remote. Remove newer duplicates. Compare parents->[0], name, md5Checcksum
+
+Report unwanted, unnatural files.
+
+=cut
+
+sub clean_remote_duplicates($self) {
+
+# get all elements but not google docs
+    my @files = $self->_get_remote_files(undef);
+
+# put them in an hash with arrays.
+    my %files_h = ();
+    for my $f (@files) {
+        my $id = join('/',$f->{parents}->[0],$f->{name},$f->{md5Checksum});
+        push @{$files_h{$id}}, $f;
+    }
+# delete newer versions of a file.
+    for my $k(keys %files_h) {
+        if (scalar @{$files_h{$k}} > 1) {
+            say $k;
+
+            # get min date
+            my $min='ZZ';
+            for my $dup(@{$files_h{$k}}) {
+                if ($min gt $dup->{modifiedTime}) {
+                    $min = $dup;
+                }
+            }
+            return if $min eq 'ZZ';
+            # delete all newer versions
+            my $deleted_count=0;
+            for my $dup(@{$files_h{$k}}) {
+                if ($min ne $dup->{modifiedTime}) {
+                    say $k;
+                    my $res = $self->http_request('delete',$self->api_file_url . $dup->{id});
+                    die Dumper $res if $res;
+
+                }
+                $deleted_count++;
+            }
+            say "#        Deleted count ".$deleted_count;
+
+            #            die Dumper $files_h{$k};
+        }
+    }
+
+    # Look for empty files
+    for my $f(@files) {
+        die if ! exists $f->{size};
+        if ($f->{size} == 0) {
+                    say Dumper $f;;
+                    my $res = $self->http_request('delete',$self->api_file_url . $f->{id});
+                    die Dumper $res if $res;
+        }
+    }
+
+    # report orphan files
+
 }
 
 =head2 get_common_hash
@@ -131,7 +268,10 @@ sub file_from_metadata ($self,$metadata,%opts) {
     my %options;
     %options= %opts;
     $options{$_} = $common{$_} for keys %common;
-    die Dumper $self if ! $options{oauth};
+    if (! $options{oauth}) {
+        warn Dumper $self;
+        die 'oauth';
+    }
     my $return = Mojo::GoogleDrive::Mirror::File->new(metadata=>$metadata, %options);
     return $return;
 }
@@ -147,7 +287,10 @@ Do a request and return a hash converted from returned json.
 sub http_request($self, $method,$url,$header='',@) {
 
 
-    die Dumper $self if ! $self->{oauth};
+    if (! $self->oauth) {
+        warn Dumper $self;
+        die "No oauth";
+    }
     my $main_header ={};
     $main_header = $header if $header;
     my %tmp_header = $self->{oauth}->authorization_headers();
@@ -178,8 +321,61 @@ sub http_request($self, $method,$url,$header='',@) {
     } else {
         $return = decode_json($body);
     }
+    if (ref $return eq 'HASH' && exists $return->{nextPageToken}) {
+        $url->query(pageToken =>$return->{nextPageToken});
+        $body = $self->http_request($method,$url,$header,@extra);
+        my $return2 = decode_json($body);
 
+        #merge next page in result;
+        for my $x(keys %$return2) {
+            if (ref $return2->{$x} eq 'ARRAY') {
+                push @{ $return->{$x}}, @{ $return2->{$x}};
+            } else {
+                ...;
+            }
+        }
+    }
     return $return
+}
+
+# PRIVATE METHODS
+
+# _get_remote_files
+#  Return all files changed after given $from_md
+# Called by sync and clean_remote_duplicates
+
+sub _get_remote_files($self,$from_md) {
+
+    my $opts;
+    $opts->{q} = '';
+    $opts->{q} = q_and($opts->{q}, "trashed = false" );
+    $opts->{q} = q_and($opts->{q}, "modifiedTime > '$from_md'") if $from_md;
+    $opts->{q} = q_and($opts->{q}, "mimeType != 'application/vnd.google-apps.folder'");
+    $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.document'");
+    $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.presentation'");
+    $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.spreadsheet'");
+    $opts->{pageSize} = 1000;
+
+    $opts->{fields} = join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
+    my $url = Mojo::URL->new($self->api_file_url)->query($opts);
+#    ...;# mangler dateo fra || since q => modifiedTime > '2012-06-04T12:00:00' // default time zone is UTC
+    my $remote_files = $self->http_request('get',$url,'');
+    return @{ $remote_files->{files} };
+}
+
+# NON SELF UTILITY SUBS
+
+=head2 q_and
+
+    $q = q_and($q,"name = 'filename.txt'");
+
+=cut
+
+sub q_and($old,$add) {
+    my $return=$old;
+    $return .=' and ' if $return;
+    $return .= $add;
+    return $return;
 }
 
 1;
