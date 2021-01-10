@@ -101,7 +101,7 @@ Look up cashed data, if not as google drive for an update.
 
 =cut
 
-sub get_metadata($self) {
+sub get_metadata($self,$full = 0) {
     my $metadata;
     $metadata = $self->metadata if ( ref $self->metadata);
     if (! ref $metadata || ! keys %$metadata) {
@@ -110,18 +110,18 @@ sub get_metadata($self) {
     my @pathobj;
     if (! ref $metadata || ! keys %$metadata) {
 
-        @pathobj = $self->path_resolve->map(sub{$_->metadata})->each;
+        @pathobj = $self->path_resolve($full)->map(sub{$_->metadata})->each;
 #        say STDERR Dumper \@pathobj;
         $metadata = $pathobj[$#pathobj] if @pathobj;# kunne vært get_metadata
     }
-    if (! $metadata || ! keys %$metadata) {
+    if ((! $metadata || ! keys %$metadata) && -f path($self->lfile)->to_string) {
         # populate name from local_file
         # try to lookup remote parents
         # fill kind,mimeType,parents,trashed,modifiedTime,explicitlyTrashed
         $metadata={
             kind=>'drive#file',
-            trashed=>false,
-            explicitlyTrashed=>false,
+#            trashed=>false,
+#            explicitlyTrashed=>false,
         };
         $metadata->{mimeType}=$self->file_mime_type if -e $self->pathfile;
 
@@ -185,6 +185,7 @@ sub upload {
     }
 
     my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', 'Content-Length'=>$byte_size, content => to_json($mcontent),};
+
     my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
     say $urlstring;
     my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header ,   multipart => [
@@ -233,7 +234,7 @@ Get File objects for each element in path include. First element is root and las
 
 =cut
 
-sub path_resolve($self) {
+sub path_resolve($self,$full=0) {
     my @parts = grep { $_ ne '' } @{ $self->rfile->to_array };
 
     my @return;
@@ -248,7 +249,8 @@ sub path_resolve($self) {
         $root_meta = $metadata_all{'/'};
     }
     if (!$root_meta->{id}) {
-        my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> INTERESTING_FIELDS );
+        my $fields = ($full ? '*' : INTERESTING_FIELDS);
+        my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> $fields );
         say $url;
         $root_meta = $self->mgm->http_request('get',$url,'');
         $metadata_all{'/'} = $root_meta;
@@ -276,7 +278,7 @@ sub path_resolve($self) {
         if ($i<$#parts) {
             $param{dir_only}=1;
         }
-
+        $param{full}=$full;
         my @children = $dir->list(%param)->each;
 
         $old_part=$part;
@@ -346,8 +348,15 @@ sub list($self, %options) {
         $opts->{q} = q_and($opts->{q},"name = '$options{name}'");
     }
 
-    $opts->{q} = q_and($opts->{q},"trashed = false");
-    $opts->{fields} = join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
+    # $opts->{q} = q_and($opts->{q},"trashed = false");
+    my $fields = INTERESTING_FIELDS;
+    if($options{full}) {
+       $fields = '*';
+    }
+    delete $options{full};
+
+  #  $opts->{fields} = join(',', map{"files/$_"} split(',',$fields) );
+    $opts->{fields} = "nextPageToken,files($fields)";#INTERESTING_FIELDS;
     my @children = ();
     delete $opts->{dir_only};
     delete $opts->{name};
@@ -357,6 +366,9 @@ sub list($self, %options) {
     my $data = $self->mgm->http_request('get',$url,'');
 
     my @objects =  map {$self->{mgm}->file_from_metadata($_)} @{ $data->{files} };
+    if ($data->{nextPageToken}) {
+        die Dumper $data;
+    }
     return Mojo::Collection->new(@objects);
 }
 

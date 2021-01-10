@@ -11,6 +11,7 @@ use OAuth::Cmdline::GoogleDrive;
 use Mojo::JSON qw /decode_json encode_json true false/;
 use Mojo::Date;
 use Digest::MD5 qw /md5_hex/;
+use Mojo::Util 'url_unescape';
 
 =head1 NAME
 
@@ -110,9 +111,9 @@ sub sync($self) {
     # Calcutale diff
     # newly changed remote
 
-
-if(0) { # turn of query remote when develop local
-  my @files = $self->_get_remote_files(undef);
+    my @rfiles;
+if(1) { # turn of query remote when develop local
+    @rfiles = $self->_get_remote_files(undef);
 
 
     #get root
@@ -124,13 +125,15 @@ if(0) { # turn of query remote when develop local
     my $opts={};
     my %id2pathfile = ($root->{id} => '');
     $opts->{q} = '';
-    $opts->{fields} = join(',', map{"files/$_"} split(',','id,name,parents,kind') );#INTERESTING_FIELDS;
+#    $opts->{fields} = join(',', map{"files/$_"} split(',','id,name,parents,kind') );
+    $opts->{fields} = "nextPageToken,".join(',', map{"files/$_"} split(',','id,name,parents,kind') );
     $opts->{q} = q_and($opts->{q}, "trashed = false" );
     $opts->{q} = q_and($opts->{q}, "mimeType = 'application/vnd.google-apps.folder'");
     $opts->{pageSize} = 1000;
     $url = Mojo::URL->new($self->api_file_url)->query($opts);
     my $remote_folders = $self->http_request('get',$url,'');
-    say scalar @{ $remote_folders->{files} };
+#    warn join(' ', keys %$remote_folders);
+#    say scalar @{ $remote_folders->{files} };
 
     #build all folder structures
 
@@ -156,9 +159,9 @@ if(0) { # turn of query remote when develop local
 #    die Dumper \%id2pathfile;
 
     # get pathfile value
-    for my $f (@files) {
+    for my $f (@rfiles) {
         $f->{modifiedTime} = Mojo::Date->new($f->{modifiedTime});
-        die encode_json($f) if ! exists $f->{parents}->[0];
+        warn encode_json($f) if ! exists $f->{parents}->[0];
         $f->{pathfile} = $id2pathfile{$f->{parents}->[0]}.'/'.$f->{name};
     }
 } #if 0
@@ -166,10 +169,45 @@ if(0) { # turn of query remote when develop local
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
      %lc = map { my @s = stat($_);$_=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+    my @lfiles;
      for my $k (keys %lc) {
-        $lc{$k}{md5Checksum} = md5_hex($k);
+ #       say $lc{$k}->{is_folder};
+        if (! $lc{$k}->{is_folder}) {
+            $lc{$k}{md5Checksum} = md5_hex($k);
+            $lc{$k}{pathfile} = $k;
+            push @lfiles, $lc{$k};
+        }
      }
-    say Dumper \%lc;
+#    say Dumper \%lc;
+    say "remotefiles: ".scalar @rfiles;
+    say "localfiles: ".scalar @lfiles;
+    say "\nExists localbut not remote";
+    for my $l(@lfiles) {
+        my $hit =0;
+        my $lpf = substr($l->{pathfile},length($self->local_root));
+        for my $r(@rfiles) {
+
+            if ($lpf eq $r->{pathfile}) {
+                $hit =1;
+                last;
+            }
+        }
+        say "$lpf: $hit" if !$hit;
+    }
+
+    say "\nExists remote but not local";
+    for my $r(@rfiles) {
+        my $hit =0;
+        for my $l(@lfiles) {
+            my $lpf = substr($l->{pathfile},length($self->local_root));
+
+            if ($lpf eq $r->{pathfile}) {
+                $hit =1;
+                last;
+            }
+        }
+        say "$r->{pathfile}: $hit" if !$hit;
+    }
 ;
 
     # resolve conflicts
@@ -188,11 +226,11 @@ Report unwanted, unnatural files.
 sub clean_remote_duplicates($self) {
 
 # get all elements but not google docs
-    my @files = $self->_get_remote_files(undef);
+    my @rfiles = $self->_get_remote_files(undef);
 
 # put them in an hash with arrays.
     my %files_h = ();
-    for my $f (@files) {
+    for my $f (@rfiles) {
         my $id = join('/',$f->{parents}->[0],$f->{name},$f->{md5Checksum});
         push @{$files_h{$id}}, $f;
     }
@@ -227,7 +265,7 @@ sub clean_remote_duplicates($self) {
     }
 
     # Look for empty files
-    for my $f(@files) {
+    for my $f(@rfiles) {
         die if ! exists $f->{size};
         if ($f->{size} == 0) {
                     say Dumper $f;;
@@ -321,21 +359,29 @@ sub http_request($self, $method,$url,$header='',@) {
     } else {
         $return = decode_json($body);
     }
+    say scalar @{$return->{files}} if ref $return && exists $return->{files};
     if (ref $return eq 'HASH' && exists $return->{nextPageToken}) {
-        $url->query(pageToken =>$return->{nextPageToken});
+        my %real_return = %$return;
+        say "####################################################################";
+        $url->query({pageToken=>$return->{nextPageToken}});
+        #$url .= "$url".''
+#        $url = "$url".'&pageToken='.$return->{nextPageToken}.'QQQ%3D%3D';
         $body = $self->http_request($method,$url,$header,@extra);
-        my $return2 = decode_json($body);
-
+        $return = $body;
         #merge next page in result;
-        for my $x(keys %$return2) {
-            if (ref $return2->{$x} eq 'ARRAY') {
-                push @{ $return->{$x}}, @{ $return2->{$x}};
+        for my $x(keys %real_return) {
+            if (ref $real_return{$x} eq 'ARRAY') {
+                push @{ $real_return{$x}}, @{ $return->{$x}};
+            } elsif($x eq 'nextPageToken') {
+                # ignore
             } else {
+                say $x;
                 ...;
             }
         }
+        $return = \%real_return;
     }
-    return $return
+    return $return;
 }
 
 # PRIVATE METHODS
@@ -356,10 +402,11 @@ sub _get_remote_files($self,$from_md) {
     $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.spreadsheet'");
     $opts->{pageSize} = 1000;
 
-    $opts->{fields} = join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
+    $opts->{fields} = 'nextPageToken,' . join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
     my $url = Mojo::URL->new($self->api_file_url)->query($opts);
 #    ...;# mangler dateo fra || since q => modifiedTime > '2012-06-04T12:00:00' // default time zone is UTC
     my $remote_files = $self->http_request('get',$url,'');
+#    die keys %$remote_files;
     return @{ $remote_files->{files} };
 }
 
