@@ -12,7 +12,7 @@ use Mojo::JSON qw /decode_json encode_json true false/;
 use Mojo::Date;
 use Digest::MD5 qw /md5_hex/;
 use Mojo::Util 'url_unescape';
-
+use Encode 'decode';
 =head1 NAME
 
 Mojo::GoogleDrive::Mirror
@@ -159,16 +159,34 @@ if(1) { # turn of query remote when develop local
 #    die Dumper \%id2pathfile;
 
     # get pathfile value
-    for my $f (@rfiles) {
-        $f->{modifiedTime} = Mojo::Date->new($f->{modifiedTime});
-        warn encode_json($f) if ! exists $f->{parents}->[0];
-        $f->{pathfile} = $id2pathfile{$f->{parents}->[0]}.'/'.$f->{name};
+    for my $r (@rfiles) {
+        $r->{modifiedTime} = Mojo::Date->new($r->{modifiedTime});
+        if (! exists $r->{parents}->[0] || !$r->{parents}->[0]) {
+#            say "Parent not set: " . encode_json($r);
+            $r = undef;# shared with me
+        } else {
+            if (! exists $id2pathfile{$r->{parents}->[0]}) {
+                if ($r->{name} =~ /FORE/) {
+                    $r->{name}='ERROR NAME';
+                }
+               if ($r->{name} =~ /[\xC3\x{FFFD}\x{C3B8}\x{C2}]/) { # used by utf8
+                    $r->{name} = decode('UTF-8', $r->{name}, Encode::FB_DEFAULT);
+                } else {
+                    $r->{name} = decode('ISO-8859-1', $r->{name});
+                }
+ #               say "Parent does not exists ".encode_json($r);
+                $r = undef;# shared with me
+            } else {
+                $r->{pathfile} = $id2pathfile{$r->{parents}->[0]}.'/'.$r->{name};
+            }
+        }
     }
+    @rfiles = grep{$_} @rfiles;
 } #if 0
     # newly local changes
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-     %lc = map { my @s = stat($_);$_=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+     %lc = map { my @s = stat($_);decode('UTF-8',$_)=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
      for my $k (keys %lc) {
  #       say $lc{$k}->{is_folder};
@@ -181,12 +199,12 @@ if(1) { # turn of query remote when develop local
 #    say Dumper \%lc;
     say "remotefiles: ".scalar @rfiles;
     say "localfiles: ".scalar @lfiles;
-    say "\nExists localbut not remote";
+    say "\nExists local but not remote";
     for my $l(@lfiles) {
         my $hit =0;
         my $lpf = substr($l->{pathfile},length($self->local_root));
         for my $r(@rfiles) {
-
+            next if ! ref $r || ! exists $r->{pathfile};
             if ($lpf eq $r->{pathfile}) {
                 $hit =1;
                 last;
@@ -198,9 +216,10 @@ if(1) { # turn of query remote when develop local
     say "\nExists remote but not local";
     for my $r(@rfiles) {
         my $hit =0;
+        next if ! ref $r ||! exists $r->{pathfile};
         for my $l(@lfiles) {
             my $lpf = substr($l->{pathfile},length($self->local_root));
-
+            next if ! $lpf;
             if ($lpf eq $r->{pathfile}) {
                 $hit =1;
                 last;
@@ -213,6 +232,7 @@ if(1) { # turn of query remote when develop local
     # resolve conflicts
 
     # diff resolve
+    say '';
 }
 
 =head2 clean_remote_duplicates
@@ -231,7 +251,7 @@ sub clean_remote_duplicates($self) {
 # put them in an hash with arrays.
     my %files_h = ();
     for my $f (@rfiles) {
-        my $id = join('/',$f->{parents}->[0],$f->{name},$f->{md5Checksum});
+        my $id = join('/',($f->{parents}->[0]//'__UNDEF__'),$f->{name},($f->{md5Checksum}//'__UNDEF__'));
         push @{$files_h{$id}}, $f;
     }
 # delete newer versions of a file.
@@ -266,7 +286,7 @@ sub clean_remote_duplicates($self) {
 
     # Look for empty files
     for my $f(@rfiles) {
-        die if ! exists $f->{size};
+        die encode_json($f)if ! exists $f->{size};
         if ($f->{size} == 0) {
                     say Dumper $f;;
                     my $res = $self->http_request('delete',$self->api_file_url . $f->{id});
