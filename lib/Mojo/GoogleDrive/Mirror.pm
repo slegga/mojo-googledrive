@@ -13,6 +13,9 @@ use Mojo::Date;
 use Digest::MD5 qw /md5_hex/;
 use Mojo::Util 'url_unescape';
 use Encode 'decode';
+use YAML::Syck;
+use Const::Fast;
+
 =head1 NAME
 
 Mojo::GoogleDrive::Mirror
@@ -61,6 +64,8 @@ has  oauth          => sub { OAuth::Cmdline::GoogleDrive->new() };
 has sync_direction => 'both'; # both ways clound wins if in conflict
 has sync_conflict_master =>'cloud';
 has ua =>sub {Mojo::UserAgent->new};
+has state_file => sub {path($ENV{HOME})->child('etc')->make_path->child('googledrive.yml')->touch};
+has 'debug';
 
 =head2 INTERESTING_FIELDS
 
@@ -68,10 +73,10 @@ Constant set to minimum meta data for a file.
 
 =cut
 
-sub INTERESTING_FIELDS {
-    return 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
-}
+const my $INTERESTING_FIELDS => 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
 
+
+my $new_from_epoch;
 
 =head2 new
 
@@ -85,11 +90,9 @@ Return a new file object.
 
 =cut
 
-sub file {
-    my $self = shift;
-    my $pathfile = shift //die;
+sub file($self,$pathfile) {
     my $opts ={};
-    for my $key(qw/remote_root local_root api_file_url api_upload_url oauth/) {
+    for my $key(qw/remote_root local_root api_file_url api_upload_url oauth debug/) {
         $opts->{$key} = $self->$key if ($self->can($key));
     }
     my %common = $self->get_common_hash;
@@ -110,33 +113,29 @@ Calculate diff with newly changed files local and remote. If both changes keep r
 sub sync($self) {
     # Calcutale diff
     # newly changed remote
-
+    my $from_epoch = $self->_read_from_epoch();
     my @rfiles;
 if(1) { # turn of query remote when develop local
-    @rfiles = $self->_get_remote_files(undef);
+    @rfiles = $self->_get_remote_files(0);
 
 
     #get root
     my $url = Mojo::URL->new($self->api_file_url)->path('root')->query(fields => 'id,name');
 
-    say $url;
+    say $url if $self->debug;
     my $root = $self->http_request('get',$url,'');
 
     my $opts={};
     my %id2pathfile = ($root->{id} => '');
     $opts->{q} = '';
-#    $opts->{fields} = join(',', map{"files/$_"} split(',','id,name,parents,kind') );
     $opts->{fields} = "nextPageToken,".join(',', map{"files/$_"} split(',','id,name,parents,kind') );
     $opts->{q} = q_and($opts->{q}, "trashed = false" );
     $opts->{q} = q_and($opts->{q}, "mimeType = 'application/vnd.google-apps.folder'");
     $opts->{pageSize} = 1000;
     $url = Mojo::URL->new($self->api_file_url)->query($opts);
     my $remote_folders = $self->http_request('get',$url,'');
-#    warn join(' ', keys %$remote_folders);
-#    say scalar @{ $remote_folders->{files} };
 
     #build all folder structures
-
     my @folders = @{$remote_folders->{files}};
     my $j =0;
     while (@folders && $j<6) {
@@ -145,7 +144,6 @@ if(1) { # turn of query remote when develop local
                 next if ! $k;
                 next if ! $folders[$i];
                 if (! exists $folders[$i]->{parents} || ! $folders[$i]->{parents}->[0]) {
-#                    say "No parent: ".encode_json($folders[$i]);
                     next;
                 }
                 elsif ($folders[$i]->{parents}->[0] eq $k) {
@@ -162,7 +160,6 @@ if(1) { # turn of query remote when develop local
     for my $r (@rfiles) {
         $r->{modifiedTime} = Mojo::Date->new($r->{modifiedTime});
         if (! exists $r->{parents}->[0] || !$r->{parents}->[0]) {
-#            say "Parent not set: " . encode_json($r);
             $r = undef;# shared with me
         } else {
             if (! exists $id2pathfile{$r->{parents}->[0]}) {
@@ -174,7 +171,6 @@ if(1) { # turn of query remote when develop local
                 } else {
                     $r->{name} = decode('ISO-8859-1', $r->{name});
                 }
- #               say "Parent does not exists ".encode_json($r);
                 $r = undef;# shared with me
             } else {
                 $r->{pathfile} = $id2pathfile{$r->{parents}->[0]}.'/'.$r->{name};
@@ -189,17 +185,18 @@ if(1) { # turn of query remote when develop local
      %lc = map { my @s = stat($_);decode('UTF-8',$_)=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
      for my $k (keys %lc) {
- #       say $lc{$k}->{is_folder};
         if (! $lc{$k}->{is_folder}) {
-            $lc{$k}{md5Checksum} = md5_hex($k);
+            $lc{$k}{md5Checksum} = md5_hex(path($k)->slurp);
             $lc{$k}{pathfile} = $k;
             push @lfiles, $lc{$k};
         }
      }
-#    say Dumper \%lc;
-    say "remotefiles: ".scalar @rfiles;
-    say "localfiles: ".scalar @lfiles;
-    say "\nExists local but not remote";
+    say "remotefiles: ".scalar @rfiles   if $self->debug;
+    say "localfiles: ".scalar @lfiles    if $self->debug;
+    say "\nExists local but not remote"  if $self->debug;;
+    my @pathfile_download=();
+    my @pathfile_upload=();
+    my @allfiles = @rfiles;
     for my $l(@lfiles) {
         my $hit =0;
         my $lpf = substr($l->{pathfile},length($self->local_root));
@@ -210,29 +207,69 @@ if(1) { # turn of query remote when develop local
                 last;
             }
         }
-        say "$lpf: $hit" if !$hit;
+        if (!$hit) {
+            push @pathfile_upload,$lpf;
+            say "$lpf: $hit"  if $self->debug;
+        }
     }
-
-    say "\nExists remote but not local";
-    for my $r(@rfiles) {
-        my $hit =0;
-        next if ! ref $r ||! exists $r->{pathfile};
-        for my $l(@lfiles) {
-            my $lpf = substr($l->{pathfile},length($self->local_root));
-            next if ! $lpf;
-            if ($lpf eq $r->{pathfile}) {
-                $hit =1;
-                last;
+    if(1) {
+        say "\nExists remote but not local"  if $self->debug;
+        for my $r(@rfiles) {
+            my $hit =0;
+            next if ! ref $r ||! exists $r->{pathfile};
+            for my $l(@lfiles) {
+                my $lpf = substr($l->{pathfile},length($self->local_root));
+                next if ! $lpf;
+                if ($lpf eq $r->{pathfile}) {
+                    $hit =1;
+                    last;
+                }
+            }
+            if (!$hit) {
+                say "$r->{pathfile}: $hit"  if $self->debug;
+                push @pathfile_download,$r->{pathfile};
             }
         }
-        say "$r->{pathfile}: $hit" if !$hit;
     }
-;
-
-    # resolve conflicts
 
     # diff resolve
-    say '';
+    {
+        my %uniqpath;
+        my %rfiles_h = map { $_->{pathfile}, $_ } @rfiles;
+        my $local_root_length = $self->local_root;
+        my %lfiles_h = map { substr($_->{pathfile},length($local_root_length)), $_ } @lfiles;
+        $uniqpath{$_}++ for keys %rfiles_h;
+        $uniqpath{$_}++ for keys %lfiles_h;
+
+        my @fallfiles;
+        for my $k(keys %uniqpath) {
+            if ($uniqpath{$k} == 2) {
+                if ($lfiles_h{$k}->{md5Checksum} eq $rfiles_h{$k}->{md5Checksum}) {
+                    next;
+                }
+                say 'md5 diff'. $k.' '.$lfiles_h{$k}->{md5Checksum}. ' '.$rfiles_h{$k}->{md5Checksum} if $self->debug;
+                if ($rfiles_h{$k}->{modifiedTime}->epoch() >= $lfiles_h{$k}->{modifiedTime}->epoch()) {
+                    push (@pathfile_download,$k);
+                }
+                elsif ($rfiles_h{$k}->{modifiedTime}->epoch() >= $from_epoch) {
+                    push (@pathfile_download,$k);
+                } else {
+                    push (@pathfile_upload,$k);
+                }
+
+            } else {
+                say "Name diff $k" if $self->debug;
+                ;
+            }
+        }
+    }
+    # resolve conflicts
+    say "Download: ".join(', ',@pathfile_download);
+    say "Upload: ".join(', ',@pathfile_upload);
+    $self->file($_)->download   for (@pathfile_download);
+    $self->file($_)->upload   for (@pathfile_upload);
+
+    $self->_end_tasks();
 }
 
 =head2 clean_remote_duplicates
@@ -286,7 +323,8 @@ sub clean_remote_duplicates($self) {
 
     # Look for empty files
     for my $f(@rfiles) {
-        die encode_json($f)if ! exists $f->{size};
+        #die encode_json($f)
+        next if ! exists $f->{size};
         if ($f->{size} == 0) {
                     say Dumper $f;;
                     my $res = $self->http_request('delete',$self->api_file_url . $f->{id});
@@ -315,7 +353,7 @@ sub get_common_hash($self) {
 
 =head2 file_from_metadata
 
-    my $file = $gd->file_from_metadata({name=>'test.txt',kind=>'drive#file', mimeType =>'application/octet-stream'});
+    my $file = $gd->file_from_metadata({name=>'test.txt',kind=>'drive#file', mimeType =>'application/octet-stream'},pathfile => $pathfile);
 
 Creates a new fileobject based on metadata.
 
@@ -330,6 +368,7 @@ sub file_from_metadata ($self,$metadata,%opts) {
         warn Dumper $self;
         die 'oauth';
     }
+
     my $return = Mojo::GoogleDrive::Mirror::File->new(metadata=>$metadata, %options);
     return $return;
 }
@@ -422,12 +461,34 @@ sub _get_remote_files($self,$from_md) {
     $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.spreadsheet'");
     $opts->{pageSize} = 1000;
 
-    $opts->{fields} = 'nextPageToken,' . join(',', map{"files/$_"} split(',',INTERESTING_FIELDS) );#INTERESTING_FIELDS;
+    $opts->{fields} = 'nextPageToken,' . join(',', map{"files/$_"} split(',',$INTERESTING_FIELDS) );#INTERESTING_FIELDS;
     my $url = Mojo::URL->new($self->api_file_url)->query($opts);
 #    ...;# mangler dateo fra || since q => modifiedTime > '2012-06-04T12:00:00' // default time zone is UTC
     my $remote_files = $self->http_request('get',$url,'');
 #    die keys %$remote_files;
     return @{ $remote_files->{files} };
+}
+
+sub _read_from_epoch($self) {
+    # read old from epoch file and store for return on end of sub
+
+    my $old_from_epoch = 0;
+    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
+        $old_from_epoch = YAML::Syck::LoadFile($self->state_file->to_string)->{last_sync_epoch};
+    }
+    # read new from epoch file and store for write in _end_tasks
+    $new_from_epoch = time() if ! $new_from_epoch;
+    return $old_from_epoch;;
+}
+
+sub _end_tasks($self) {
+    # write new_from_epoch to file 11 - 13
+    my $state = {};
+    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
+        $state = YAML::Syck::LoadFile($self->state_file->to_string );
+    }
+    $state->{last_sync_epoch} = $new_from_epoch;
+    YAML::Syck::DumpFile($self->state_file->to_string,$state);
 }
 
 # NON SELF UTILITY SUBS
@@ -446,3 +507,4 @@ sub q_and($old,$add) {
 }
 
 1;
+
