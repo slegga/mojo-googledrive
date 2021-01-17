@@ -25,7 +25,7 @@ See README.md
 
 With no command do a normal sync with remote google drive disk.
 
-over 4
+=over 4
 
 =item dryrun - Only print changes. Turn on verbose mode if implemented.
 

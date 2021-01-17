@@ -66,7 +66,14 @@ has sync_conflict_master =>'cloud';
 has ua =>sub {Mojo::UserAgent->new};
 has state_file => sub {path($ENV{HOME})->child('etc')->make_path->child('googledrive.yml')->touch};
 has 'debug';
-
+has state => sub {
+    my $self =shift;
+    my $state = {};
+    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
+        $state = YAML::Syck::LoadFile($self->state_file->to_string );
+    }
+    return $state;
+};
 =head2 INTERESTING_FIELDS
 
 Constant set to minimum meta data for a file.
@@ -115,6 +122,8 @@ sub sync($self) {
     # newly changed remote
     my $from_epoch = $self->_read_from_epoch();
     my @rfiles;
+    my @pathfile_deleted=();
+
 if(1) { # turn of query remote when develop local
     @rfiles = $self->_get_remote_files(0);
 
@@ -178,6 +187,22 @@ if(1) { # turn of query remote when develop local
         }
     }
     @rfiles = grep{$_} @rfiles;
+    {
+        my $state = $self->state;
+        my @old_rem_pathfiles = sort @{$state->{remote_pathfiles}};
+        my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
+
+        #TODO: Find missing since last state. Mark for Removal of local copies.
+        for my $orpf (@old_rem_pathfiles) {
+            if (! grep {$orpf eq $_} @rem_pathfiles) {
+                push @pathfile_deleted, $orpf;
+            }
+        }
+
+
+        $state->{remote_pathfiles} = \@rem_pathfiles;
+        $self->state($state);
+    }
 } #if 0
     # newly local changes
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
@@ -266,9 +291,15 @@ if(1) { # turn of query remote when develop local
     # resolve conflicts
     say "Download: ".join(', ',@pathfile_download);
     say "Upload: ".join(', ',@pathfile_upload);
+    say "Deleted: ".join(', ',@pathfile_deleted);
     $self->file($_)->download   for (@pathfile_download);
     $self->file($_)->upload   for (@pathfile_upload);
-
+    for my $d(@pathfile_deleted) {
+        my $destiny = path($ENV{HOME},'.googledrive','conflict-removed',$d);
+        warn "delete $d";
+        $destiny->dirname->make_path;
+        path($self->local_root,$d)->move("$destiny");
+    }
     $self->_end_tasks();
 }
 
@@ -454,7 +485,7 @@ sub _get_remote_files($self,$from_md) {
     my $opts;
     $opts->{q} = '';
     $opts->{q} = q_and($opts->{q}, "trashed = false" );
-    $opts->{q} = q_and($opts->{q}, "modifiedTime > '$from_md'") if $from_md;
+    $opts->{q} = q_and($opts->{q}, "modifiedTime > '".Mojo::Date->new->epoch($from_md)->to_datetime."'") if $from_md;
     $opts->{q} = q_and($opts->{q}, "mimeType != 'application/vnd.google-apps.folder'");
     $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.document'");
     $opts->{q} = q_and($opts->{q}, "mimeType != 'application\/vnd.google-apps.presentation'");
@@ -483,10 +514,7 @@ sub _read_from_epoch($self) {
 
 sub _end_tasks($self) {
     # write new_from_epoch to file 11 - 13
-    my $state = {};
-    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
-        $state = YAML::Syck::LoadFile($self->state_file->to_string );
-    }
+    my $state = $self->state;
     $state->{last_sync_epoch} = $new_from_epoch;
     YAML::Syck::DumpFile($self->state_file->to_string,$state);
 }
