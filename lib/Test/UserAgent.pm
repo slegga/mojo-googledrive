@@ -1,6 +1,7 @@
 package Test::UserAgent;
 use Mojo::Base -base, -signatures;
 use Data::Dumper;
+use lib 'lib';
 use Test::UserAgent::Transaction;
 use Mojo::JSON qw /to_json true false/;
 use Mojo::File qw/path/;
