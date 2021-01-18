@@ -147,8 +147,8 @@ sub get_metadata($self,$full = 0) {
 #            explicitlyTrashed=>false,
         };
         $metadata->{mimeType}=$self->file_mime_type if -e $self->pathfile;
-
         $metadata->{name} = path($self->rfile)->basename;
+        #$metadata->{name} = decode('UTF-8',path($self->rfile)->basename);
         if (exists $pathobj[$#pathobj -1]) {
             $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
         }

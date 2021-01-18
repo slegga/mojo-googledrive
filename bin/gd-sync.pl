@@ -1,7 +1,8 @@
 #! /usr/bin/env perl
-
+use Mojo::Base -signatures,-strict;
 use Mojo::File 'curfile';
 use open ':std', ':encoding(UTF-8)';
+my $curlib;
 BEGIN {
     $curlib = curfile->dirname->dirname->child('lib')->to_string;
 };
@@ -42,5 +43,51 @@ With no command do a normal sync with remote google drive disk.
 
 =cut
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"$ENV{HOME}/googledrive", remote_root=>'/');
-$o->sync(@ARGV);
+# simple_argv
+# Return a hash structure based on ARGV
+
+sub simple_argv {
+    my @script_args = @_;
+    my $return;
+    my $index = -1;
+    for my $i(0 .. $#script_args) {
+        last if ($script_args[$i] =~ /^\--/);
+        $index = $i;
+        push @{$return->{commands}}, $script_args[$i];
+    }
+    $index++;
+    if ($index <= $#script_args) {
+        my $key;
+        for my $i ($index .. $#script_args) {
+            if ($script_args[$i] =~ /^\--/) {
+                if ($key && ! exists $return->{$key}) {
+                    $return->{$key} = 1;
+                }
+                $key = $script_args[$i];
+                $key =~ s/^\-\-//;
+            } else {
+                if (! exists $return->{$key}) {
+                    $return->{$key} = $script_args[$i];
+                } else {
+                    if (! ref $return->{$key} ) {
+                        my $first = $return->{$key};
+                        my @values = ($first, $script_args[$i]);
+                        $return->{$key} = \@values;
+                    } else {
+                        push @{$return->{$key}},$script_args[$i];
+                    }
+                }
+            }
+        }
+    }
+    return $return;
+}
+
+
+# MAIN
+
+my $config = simple_argv(@ARGV);
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"$ENV{HOME}/googledrive", remote_root=>'/', %$config);
+$o->sync();
+
+
