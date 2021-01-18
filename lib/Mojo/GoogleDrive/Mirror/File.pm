@@ -10,6 +10,8 @@ use Mojo::Collection;
 use Mojo::GoogleDrive::Mirror;
 use open qw(:std :utf8);
 use utf8;
+use Digest::MD5 'md5_hex';
+
 #use Mojo::Util 'url_escape';
 =head1 NAME
 
@@ -55,7 +57,7 @@ has 'last_message';
 has 'metadata' => sub{{}};
 #has ua => sub { Mojo::UserAgent->new};
 has mgm => sub { Mojo::GoogleDrive::Mirror->new()};
-
+has 'debug';
 =head2 INTERESTING_FIELDS
 
 Constant set to minimum meta data for a file.
@@ -92,6 +94,28 @@ sub rfile($self) {
     return path($self->remote_root)->child($self->pathfile);
 }
 
+=head2 need_sync
+
+Return empty if file is in sync, else return 1 if sync is needed.
+
+Check if file exists both remote and local. Then get md5chechsum_hex if missing and compare.
+
+=cut
+
+sub need_sync($self) {
+    say $self->rfile if $self->debug;
+    if($self->get_metadata->{id} and -f $self->lfile) {
+        if($self->get_metadata->{md5Checksum} eq md5_hex(path($self->lfile)->slurp) ) {
+            return 0;
+        } else {
+            return 1;
+        }
+    } else {
+        return 1
+    }
+
+    ...;
+}
 
 =head2 get_metadata
 
@@ -111,7 +135,6 @@ sub get_metadata($self,$full = 0) {
     if (! ref $metadata || ! keys %$metadata) {
 
         @pathobj = $self->path_resolve($full)->map(sub{$_->metadata})->each;
-#        say STDERR Dumper \@pathobj;
         $metadata = $pathobj[$#pathobj] if @pathobj;# kunne vært get_metadata
     }
     if ((! $metadata || ! keys %$metadata) && -f path($self->lfile)->to_string) {
@@ -130,9 +153,9 @@ sub get_metadata($self,$full = 0) {
             $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
         }
         $metadata->{modifiedTime} = (stat( $self->{pathfile}))[9]; #convert to google timeformat
-        say scalar @pathobj." $#pathobj" ;
-        say $self->rfile;
-        say Dumper $metadata;
+        say scalar @pathobj." $#pathobj"  if $self->debug;
+        say $self->rfile  if $self->debug;
+        say Dumper $metadata  if $self->debug;
     }
     return $metadata;
 }
@@ -187,7 +210,7 @@ sub upload {
     my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', 'Content-Length'=>$byte_size, content => to_json($mcontent),};
 
     my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
-    say $urlstring;
+    say $urlstring if $self->debug;
     my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header ,   multipart => [
     $metapart,
     {
@@ -239,7 +262,6 @@ sub path_resolve($self,$full=0) {
 
     my @return;
     my $folder_id;
-#    say  "Parent: $folder_id" if $ENV{MOJO_DEBUG};
 
     # get root
     my $parent_id='root';
@@ -251,7 +273,7 @@ sub path_resolve($self,$full=0) {
     if (!$root_meta->{id}) {
         my $fields = ($full ? '*' : INTERESTING_FIELDS);
         my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> $fields );
-        say $url;
+        say $url  if $self->debug;
         $root_meta = $self->mgm->http_request('get',$url,'');
         $metadata_all{'/'} = $root_meta;
     }
@@ -263,7 +285,7 @@ sub path_resolve($self,$full=0) {
     my $i = -1;
   PART: for my $part (@parts) {
         $i++;
-        say  "Looking up part $part (folder_id=$folder_id)" if $ENV{MOJO_DEBUG};
+        say  "Looking up part $part (folder_id=$folder_id)" if $ENV{MOJO_DEBUG} || $self->debug;
         my $dir;
         next if ! $part;
         if (exists $metadata_all{$tmppath->to_string}) {
@@ -289,7 +311,7 @@ sub path_resolve($self,$full=0) {
 #        die Dumper $children;# if ! ref $children eq 'ARRAY';
 die if !$part;
             for my $child (@children) {
-                say Dumper $child->metadata if ! $child->metadata->{name};
+                say Dumper $child->metadata if ! $child->metadata->{name} && $self->debug;
                 say "Found child ", $child->metadata->{name} if $ENV{MOJO_DEBUG};
                 if ( $child->metadata->{name} eq $part ) {
                     $parent_id = $child->metadata->{id};
@@ -401,7 +423,7 @@ sub make_path($self) {
         # make dir
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> INTERESTING_FIELDS)->to_string;
-        say $urlstring;
+        say $urlstring  if $self->debug;
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
