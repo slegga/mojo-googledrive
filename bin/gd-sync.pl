@@ -1,4 +1,5 @@
-#!/usr/bin/env perl
+#! /usr/bin/env perl
+
 use Mojo::File 'curfile';
 use open ':std', ':encoding(UTF-8)';
 BEGIN {

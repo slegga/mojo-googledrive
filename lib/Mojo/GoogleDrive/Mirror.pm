@@ -434,7 +434,10 @@ sub http_request($self, $method,$url,$header='',@) {
         die "Timeout";
     }
     if ($code eq '404') {
-        die "@_     " . $tx->res->body;
+        "BODY: " . $tx->res->body;
+        my @err = @_;
+        shift @err;
+        die Dumper \@err;
     }
     die Dumper $tx->res if $code > 299;
 #    die Dumper $tx->res->body;
