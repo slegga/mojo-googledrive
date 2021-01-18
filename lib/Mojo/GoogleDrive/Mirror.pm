@@ -496,7 +496,7 @@ sub _get_remote_files($self,$from_md) {
 #    ...;# mangler dateo fra || since q => modifiedTime > '2012-06-04T12:00:00' // default time zone is UTC
     my $remote_files = $self->http_request('get',$url,'');
 #    die keys %$remote_files;
-    return map {$_{mimeType} !~/^application\/vnd.google-apps/} @{ $remote_files->{files} };
+    return grep {$_->{mimeType} !~/^application\/vnd.google-apps/} @{ $remote_files->{files} };
 }
 
 sub _read_from_epoch($self) {
