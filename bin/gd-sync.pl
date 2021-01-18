@@ -1,7 +1,11 @@
 #!/usr/bin/env perl
-use lib 'lib';
-use Mojo::GoogleDrive::Mirror;
+use Mojo::File 'curfile';
 use open ':std', ':encoding(UTF-8)';
+BEGIN {
+    $curlib = curfile->dirname->dirname->child('lib')->to_string;
+};
+use lib $curlib;
+use Mojo::GoogleDrive::Mirror;
 
 =head1 NAME
 

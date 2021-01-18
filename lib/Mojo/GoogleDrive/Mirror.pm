@@ -189,7 +189,8 @@ if(1) { # turn of query remote when develop local
     @rfiles = grep{$_} @rfiles;
     {
         my $state = $self->state;
-        my @old_rem_pathfiles = sort @{$state->{remote_pathfiles}};
+        my @old_rem_pathfiles=();
+        @old_rem_pathfiles = sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
         my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
 
         #TODO: Find missing since last state. Mark for Removal of local copies.
@@ -207,7 +208,7 @@ if(1) { # turn of query remote when develop local
     # newly local changes
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-     %lc = map { my @s = stat($_);decode('UTF-8',$_)=>{is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+     %lc = map { my @s = stat($_);decode('UTF-8',$_)=>{pathfile=>$_,is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
      for my $k (keys %lc) {
         if (! $lc{$k}->{is_folder}) {
@@ -224,6 +225,7 @@ if(1) { # turn of query remote when develop local
     for my $l(@lfiles) {
         my $hit =0;
         my $lpf = substr($l->{pathfile},length($self->local_root));
+        die Dumper $l if ! defined $lpf;
         for my $r(@rfiles) {
             next if ! ref $r || ! exists $r->{pathfile};
             if ($lpf eq $r->{pathfile}) {
@@ -289,8 +291,8 @@ if(1) { # turn of query remote when develop local
     }
     # resolve conflicts
     say "Download: ".join(', ',@pathfile_download);
-    say "Upload: ".join(', ',@pathfile_upload);
-    say "Deleted: ".join(', ',@pathfile_deleted);
+    say "Upload: ".join(', ',map{decode('UTF-8',$_)} @pathfile_upload);
+    say "Deleted: ".join(', ',map{decode('UTF-8',$_)} @pathfile_deleted);
     $self->file($_)->download   for (@pathfile_download);
     $self->file($_)->upload   for (@pathfile_upload);
     for my $d(@pathfile_deleted) {
