@@ -286,6 +286,7 @@ sub clean_remote_duplicates($self) {
 
     # Look for empty files
     for my $f(@rfiles) {
+        next if $f->{mimeType} =~ /^application\/vnd\.google-apps/;
         die encode_json($f)if ! exists $f->{size};
         if ($f->{size} == 0) {
                     say Dumper $f;;
