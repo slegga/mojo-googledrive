@@ -386,7 +386,7 @@ sub list($self, %options) {
         $opts->{q} = q_and($opts->{q},"name = '$options{name}'");
     }
 
-    # $opts->{q} = q_and($opts->{q},"trashed = false");
+    $opts->{q} = q_and($opts->{q},"trashed = false");
     my $fields = $INTERESTING_FIELDS;
     if($options{full}) {
        $fields = '*';

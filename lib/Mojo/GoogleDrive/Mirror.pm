@@ -1,8 +1,8 @@
 package Mojo::GoogleDrive::Mirror;
 
 use Mojo::Base -base, - signatures;
-use Mojo::File;
-use Mojo::File::Role::Decode;
+use Mojo::File 'path';
+#use Mojo::File::Role::Decode;
 use utf8;
 use open qw(:std :utf8);
 use Mojo::GoogleDrive::Mirror::File;
@@ -84,9 +84,9 @@ Constant set to minimum meta data for a file.
 
 const my $INTERESTING_FIELDS => 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
 
-sub path {
-    return Mojo::File->with_roles('+Decode')->path(@_);
-}
+#sub path {
+#    return Mojo::File->with_roles('+Decode')->path(@_);
+#}
 
 my $new_from_epoch;
 
@@ -214,7 +214,7 @@ if(1) { # turn of query remote when develop local
     # newly local changes
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-     %lc = map { my @s = stat($_);$_=>{pathfile=>$_,is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} map{decode('UTF-8',$_)} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+     %lc = map { my @s = stat($_);$_=>{pathfile=>decode('UTF-8',$_),is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
      for my $k (keys %lc) {
         if (! $lc{$k}->{is_folder}) {
