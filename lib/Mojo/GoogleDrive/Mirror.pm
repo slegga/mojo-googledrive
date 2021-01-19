@@ -58,9 +58,9 @@ Basically a producer of Mojo::GoogleDrive::Mirror::File
 
 has remote_root => '/';
 has 'local_root';
-has  api_file_url => "https://www.googleapis.com/drive/v3/files/";
-has  api_upload_url => "https://www.googleapis.com/upload/drive/v3/files/";
-has  oauth          => sub { OAuth::Cmdline::GoogleDrive->new() };
+has api_file_url => "https://www.googleapis.com/drive/v3/files/";
+has api_upload_url => "https://www.googleapis.com/upload/drive/v3/files/";
+has oauth          => sub { OAuth::Cmdline::GoogleDrive->new() };
 has sync_direction => 'both'; # both ways clound wins if in conflict
 has sync_conflict_master =>'cloud';
 has ua =>sub {Mojo::UserAgent->new};
@@ -190,12 +190,13 @@ if(1) { # turn of query remote when develop local
     {
         my $state = $self->state;
         my @old_rem_pathfiles=();
-        @old_rem_pathfiles = sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
+        @old_rem_pathfiles = map {decode('UTF-8', $_)} sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
         my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
 
         #TODO: Find missing since last state. Mark for Removal of local copies.
         for my $orpf (@old_rem_pathfiles) {
             if (! grep {$orpf eq $_} @rem_pathfiles) {
+                next if grep {$orpf eq $_} @pathfile_deleted;
                 push @pathfile_deleted, $orpf;
             }
         }
@@ -208,7 +209,7 @@ if(1) { # turn of query remote when develop local
     # newly local changes
         my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-     %lc = map { my @s = stat($_);decode('UTF-8',$_)=>{pathfile=>$_,is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep {defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+     %lc = map { my @s = stat($_);$_=>{pathfile=>$_,is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} map{decode('UTF-8',$_)} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
      for my $k (keys %lc) {
         if (! $lc{$k}->{is_folder}) {
@@ -226,6 +227,7 @@ if(1) { # turn of query remote when develop local
         my $hit =0;
         my $lpf = substr($l->{pathfile},length($self->local_root));
         die Dumper $l if ! defined $lpf;
+        next if grep {$lpf eq $_} @pathfile_deleted;
         for my $r(@rfiles) {
             next if ! ref $r || ! exists $r->{pathfile};
             if ($lpf eq $r->{pathfile}) {
@@ -274,6 +276,7 @@ if(1) { # turn of query remote when develop local
                     next;
                 }
                 say 'md5 diff'. $k.' '.$lfiles_h{$k}->{md5Checksum}. ' '.$rfiles_h{$k}->{md5Checksum} if $self->debug;
+                next if grep{$k eq $_} @pathfile_download,@pathfile_upload; #remove duplicates
                 if ($rfiles_h{$k}->{modifiedTime}->epoch() >= $lfiles_h{$k}->{modifiedTime}->epoch()) {
                     push (@pathfile_download,$k);
                 }
@@ -290,9 +293,10 @@ if(1) { # turn of query remote when develop local
         }
     }
     # resolve conflicts
-    say "Download: ".join(', ',@pathfile_download);
-    say "Upload: ".join(', ',map{decode('UTF-8',$_)} @pathfile_upload);
-    say "Deleted: ".join(', ',map{decode('UTF-8',$_)} @pathfile_deleted);
+
+    say "Download: ".join(', ', @pathfile_download);
+    say "Upload: ".  join(', ', @pathfile_upload);
+    say "Deleted: ". join(', ', @pathfile_deleted);
     $self->file($_)->download   for (@pathfile_download);
     $self->file($_)->upload   for (@pathfile_upload);
     for my $d(@pathfile_deleted) {
@@ -426,15 +430,18 @@ sub http_request($self, $method,$url,$header='',@) {
 #    say $main_header;
     my @extra = @_;
     splice @extra,0,4;
-    say $url. join('#', map {ref $_ ? encode_json($_):'$_'} @extra);#, $main_header;
+    say $method.' '.$url. join('#', map {ref $_ ? encode_json($_):'$_'} @extra);#, $main_header if $self->debug;
     my $tx = $self->ua->$method($url, $main_header,@extra);
     my $code = $tx->res->code;
     if (!$code) {
-        say $url;
+        say STDERR $url;
         die "Timeout";
     }
     if ($code eq '404') {
-        die "$method $url @_     " . $tx->res->body;
+        say STDERR "BODY: " . $tx->res->body;
+        my @err = @_;
+        shift @err;
+        die Dumper \@err;
     }
     die Dumper $tx->res if $code > 299;
 #    die Dumper $tx->res->body;
