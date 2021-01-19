@@ -186,7 +186,7 @@ sub upload {
     my $mcontent={name=>$metadata->{name}};
     my $http_method = 'post';
     if (exists $metadata->{id} && $metadata->{id}) {
-        say Dumper $metadata;
+        say Dumper $metadata if $self->debug;
         my $fileid = $metadata->{id} ;      # this line because of tests :-(
         $fileid =~ s/^\///;                 # this line because of tests :-(
         $mcontent->{id} = $metadata->{id} ;
@@ -196,7 +196,7 @@ sub upload {
         my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header,$local_file_content);
 
         if ($meta) {
-            warn Dumper $meta  ;
+            say Dumper $meta  if $self->debug;
         }
         return $self;
     }

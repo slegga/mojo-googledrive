@@ -168,7 +168,6 @@ if(1) { # turn of query remote when develop local
         }
         $j++;
     }
-#    die Dumper \%id2pathfile;
 
     # get pathfile value
     for my $r (@rfiles) {
@@ -358,7 +357,6 @@ sub clean_remote_duplicates($self) {
             }
             say "#        Deleted count ".$deleted_count;
 
-            #            die Dumper $files_h{$k};
         }
     }
 
@@ -366,7 +364,7 @@ sub clean_remote_duplicates($self) {
     for my $f(@rfiles) {
         die encode_json($f)if ! exists $f->{size};
         if ($f->{size} == 0) {
-                    say Dumper $f;;
+                    say Dumper $f;
                     my $res = $self->http_request('delete',$self->api_file_url . $f->{id});
                     die Dumper $res if $res;
         }
@@ -449,9 +447,7 @@ sub http_request($self, $method,$url,$header='',@) {
         die Dumper \@err;
     }
     die Dumper $tx->res if $code > 299;
-#    die Dumper $tx->res->body;
     my $return;
-#    return if $method eq 'patch';
     my $body;
     $body = $tx->res->body;
     if ($url =~/alt\=media/) {
