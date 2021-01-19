@@ -184,10 +184,25 @@ die "Missing local_root" if ! $self->ua->local_root;
             my $meta = $self->ua->get_metadata_from_file($f);
             return encode_json($meta);
         }
-        say STDERR "UNKNOWN URL: ".$self->ua->url;
+        say STDERR "UNKNOWN URL: ".$self->ua->method.' '.$self->ua->url;
         ...
+    } elsif ($self->ua->method eq 'patch') {
+#https://www.googleapis.com/upload/drive/v3/files/file%C3%A6%C3%B8%C3%A5.txt?uploadType=multipart&fields=id%2Ckind%2Cname%2CmimeType%2Cparents%2CmodifiedTime%2Ctrashed%2CexplicitlyTrashed%2Cmd5Checksum
+        if ( $self->ua->url =~ m|https:\/\/www\.googleapis\.com\/upload\/drive\/v3\/files\/(.*)\?|) {
+            my $hash;
+            $hash->{id} = '/'.url_unescape($1);
+            if (! $hash->{id}) {
+                die;
+            }
+            path($self->ua->real_remote_root)->child($hash->{id})->spurt($self->ua->payload);
+            return encode_json($self->ua->metadata);
+        } else {
+            say STDERR "UNKNOWN URL: ".$self->ua->method.' '.$self->ua->url;
+            ...;
+        }
     } else {
         die "Unkown method ". $self->ua->method;
+
     }
 }
 

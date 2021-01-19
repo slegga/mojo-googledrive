@@ -12,6 +12,7 @@ use Mojo::GoogleDrive::Mirror;
 use open qw(:std :utf8);
 use utf8;
 use Digest::MD5 'md5_hex';
+use Const::Fast;
 
 #use Mojo::Util 'url_escape';
 =head1 NAME
@@ -64,8 +65,10 @@ Constant set to minimum meta data for a file.
 
 =cut
 
-sub INTERESTING_FIELDS {
-    return 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum';
+const my $INTERESTING_FIELDS => 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum';
+
+sub path {
+    return Mojo::File->with_roles('+Decode')->new(@_);
 }
 
 =head2 lfile
@@ -129,7 +132,7 @@ sub get_metadata($self,$full = 0) {
     my $metadata;
     $metadata = $self->metadata if ( ref $self->metadata);
     if (! ref $metadata || ! keys %$metadata) {
-        $metadata = $self->metadata_all->{$self->rfile->to_string};
+        $metadata = $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     my @pathobj;
     if (! ref $metadata || ! keys %$metadata) {
@@ -184,9 +187,11 @@ sub upload {
     my $http_method = 'post';
     if (exists $metadata->{id} && $metadata->{id}) {
         say Dumper $metadata;
+        my $fileid = $metadata->{id} ;      # this line because of tests :-(
+        $fileid =~ s/^\///;                 # this line because of tests :-(
         $mcontent->{id} = $metadata->{id} ;
         $http_method = 'patch';
-        my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->path($metadata->{id})->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
+        my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->path($fileid)->query(uploadType=>'multipart',fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring if $self->debug;
         my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header,$local_file_content);
 
@@ -218,7 +223,7 @@ sub upload {
 
     my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', 'Content-Length'=>$byte_size, content => to_json($mcontent),};
 
-    my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
+    my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> $INTERESTING_FIELDS)->to_string;
     say $urlstring if $self->debug;
     my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header ,   multipart => [
     $metapart,
@@ -230,9 +235,9 @@ sub upload {
     my $md = $self->metadata;
     $md->{$_} = $meta->{$_} for (keys %$meta);
     $self->metadata($md);
-    my $ma = $self->metadata_all;
+    my $ma = $self->mgm->metadata_all;
     $ma->{$self->rfile->to_string} = $md;
-    $self->metadata_all($ma);
+    $self->mgm->metadata_all($ma);
     return $self;
 }
 
@@ -277,17 +282,17 @@ sub path_resolve($self,$full=0) {
     my $parent_id='root';
     my $id;
     my $root_meta;
-    if(exists $self->metadata_all->{'/'}) {
-        $root_meta = $self->metadata_all->{'/'};
+    if(exists $self->mgm->metadata_all->{'/'}) {
+        $root_meta = $self->mgm->metadata_all->{'/'};
     }
     if (!$root_meta->{id}) {
-        my $fields = ($full ? '*' : INTERESTING_FIELDS);
+        my $fields = ($full ? '*' : $INTERESTING_FIELDS);
         my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> $fields );
         say $url  if $self->debug;
         $root_meta = $self->mgm->http_request('get',$url,'');
-        my $ma=$self->metadata_all;
+        my $ma=$self->mgm->metadata_all;
         $ma->{'/'} = $root_meta;
-        $self->metadata_all($ma);
+        $self->mgm->metadata_all($ma);
     }
     die "Can not find root" if !$root_meta;
     push @return, $root_meta;
@@ -299,8 +304,8 @@ sub path_resolve($self,$full=0) {
         $i++;
         my $dir;
         next if ! $part;
-        if (exists $self->metadata_all->{decode('UTF-8',$tmppath->to_string})) {
-            $dir = $self->{mgm}->file_from_metadata($self->metadata_all->{decode('UTF-8',$tmppath->to_string}));
+        if (exists $self->mgm->metadata_all->{$tmppath->to_plaintext}) {
+            $dir = $self->mgm->file_from_metadata($self->mgm->metadata_all->{$tmppath->to_plaintext});
         }
 
         if (! $dir) {
@@ -363,7 +368,7 @@ sub list($self, %options) {
     my $meta = $self->get_metadata;
     $folder_id = $meta->{id} if exists $meta->{id};
     if (! $folder_id && $self->rfile->to_string) {
-        $folder_id = $self->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->metadata_all->{decode('UTF-8',$self->rfile->to_string)};
+        $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     if ($self->pathfile && ! $folder_id) {
         ...;
@@ -382,7 +387,7 @@ sub list($self, %options) {
     }
 
     # $opts->{q} = q_and($opts->{q},"trashed = false");
-    my $fields = INTERESTING_FIELDS;
+    my $fields = $INTERESTING_FIELDS;
     if($options{full}) {
        $fields = '*';
     }
@@ -433,12 +438,16 @@ sub make_path($self) {
         my$mcontent = { name => $pathparts[$i],mimeType=> 'application/vnd.google-apps.folder',parents=>[$parent] };
         # make dir
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
-        my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> INTERESTING_FIELDS)->to_string;
+        my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
-        $metadata_all{$self->rfile->to_string} = $meta;
+        {
+            my $ma = $self->mgm->metadata_all;
+            $ma->{$self->rfile->to_plaintext} = $meta;
+            $self->mgm->metadata_all($ma);
+        }
         $parent = $meta->{id};
         $self->metadata($meta); # the last item will have the meta data
     }

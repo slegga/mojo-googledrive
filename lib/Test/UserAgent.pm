@@ -131,8 +131,11 @@ sub post($self,$url,@) {
                 }
             } elsif ($v eq 'method=patch') {
                 $self->method('patch');
-            }
-            else {
+                $params{method}='patch';
+            } elsif ($v && ! ref $v) {
+                # payload
+                $self->payload($v);
+            } else {
                 die "Unknown '$i'  '$v'  ".ref $v;
             }
 

@@ -1,7 +1,8 @@
 package Mojo::GoogleDrive::Mirror;
 
 use Mojo::Base -base, - signatures;
-use Mojo::File 'path';
+use Mojo::File;
+use Mojo::File::Role::Decode;
 use utf8;
 use open qw(:std :utf8);
 use Mojo::GoogleDrive::Mirror::File;
@@ -83,6 +84,9 @@ Constant set to minimum meta data for a file.
 
 const my $INTERESTING_FIELDS => 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
 
+sub path {
+    return Mojo::File->with_roles('+Decode')->path(@_);
+}
 
 my $new_from_epoch;
 
