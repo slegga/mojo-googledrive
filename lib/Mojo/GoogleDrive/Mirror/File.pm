@@ -1,7 +1,8 @@
 package Mojo::GoogleDrive::Mirror::File;
 use Mojo::Base -base, -signatures;
 use Mojo::UserAgent;
-use Mojo::File 'path';
+use Mojo::File; #->with_roles(
+use Mojo::File::Role::Decode;
 use Mojo::URL;
 use File::MMagic;
 use Mojo::JSON qw /true false to_json from_json/;
@@ -44,7 +45,6 @@ Responsible to implement common logic for each file.
 
 =cut
 
-our %metadata_all=();
 
 has 'pathfile';
 has 'remote_root' => '/';
@@ -129,7 +129,7 @@ sub get_metadata($self,$full = 0) {
     my $metadata;
     $metadata = $self->metadata if ( ref $self->metadata);
     if (! ref $metadata || ! keys %$metadata) {
-        $metadata = $metadata_all{$self->rfile->to_string};
+        $metadata = $self->metadata_all->{$self->rfile->to_string};
     }
     my @pathobj;
     if (! ref $metadata || ! keys %$metadata) {
@@ -173,7 +173,6 @@ sub upload {
     # https://mojolicious.io/blog/2017/12/11/day-11-useragent-content-generators/
     my $self = shift;
     my $main_header = {$self->{oauth}->authorization_headers()};
-    $main_header ->{'Content-Type'} = 'multipart/related';
     my $local_file_content = $self->lfile->slurp;
     my $byte_size;
     {
@@ -184,9 +183,19 @@ sub upload {
     my $mcontent={name=>$metadata->{name}};
     my $http_method = 'post';
     if (exists $metadata->{id} && $metadata->{id}) {
+        say Dumper $metadata;
         $mcontent->{id} = $metadata->{id} ;
         $http_method = 'patch';
+        my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->path($metadata->{id})->query(uploadType=>'multipart',fields=> INTERESTING_FIELDS)->to_string;
+        say $urlstring if $self->debug;
+        my $meta = $self->mgm->http_request($http_method, $urlstring, $main_header,$local_file_content);
+
+        if ($meta) {
+            warn Dumper $meta  ;
+        }
+        return $self;
     }
+    $main_header ->{'Content-Type'} = 'multipart/related';
     $mcontent->{parents} = $metadata->{parents} if exists $metadata->{parents} && $metadata->{parents};
 
     # create missing folders if not exists
@@ -221,7 +230,9 @@ sub upload {
     my $md = $self->metadata;
     $md->{$_} = $meta->{$_} for (keys %$meta);
     $self->metadata($md);
-    $metadata_all{$self->rfile->to_string} = $md;
+    my $ma = $self->metadata_all;
+    $ma->{$self->rfile->to_string} = $md;
+    $self->metadata_all($ma);
     return $self;
 }
 
@@ -261,21 +272,22 @@ sub path_resolve($self,$full=0) {
     my @parts = grep { $_ ne '' } @{ $self->rfile->to_array };
 
     my @return;
-    my $folder_id;
 
     # get root
     my $parent_id='root';
     my $id;
     my $root_meta;
-    if(exists $metadata_all{'/'}) {
-        $root_meta = $metadata_all{'/'};
+    if(exists $self->metadata_all->{'/'}) {
+        $root_meta = $self->metadata_all->{'/'};
     }
     if (!$root_meta->{id}) {
         my $fields = ($full ? '*' : INTERESTING_FIELDS);
         my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> $fields );
         say $url  if $self->debug;
         $root_meta = $self->mgm->http_request('get',$url,'');
-        $metadata_all{'/'} = $root_meta;
+        my $ma=$self->metadata_all;
+        $ma->{'/'} = $root_meta;
+        $self->metadata_all($ma);
     }
     die "Can not find root" if !$root_meta;
     push @return, $root_meta;
@@ -285,11 +297,10 @@ sub path_resolve($self,$full=0) {
     my $i = -1;
   PART: for my $part (@parts) {
         $i++;
-        say  "Looking up part $part (folder_id=$folder_id)" if $ENV{MOJO_DEBUG} || $self->debug;
         my $dir;
         next if ! $part;
-        if (exists $metadata_all{$tmppath->to_string}) {
-            $dir = $self->{mgm}->file_from_metadata($metadata_all{$tmppath->to_string});
+        if (exists $self->metadata_all->{decode('UTF-8',$tmppath->to_string})) {
+            $dir = $self->{mgm}->file_from_metadata($self->metadata_all->{decode('UTF-8',$tmppath->to_string}));
         }
 
         if (! $dir) {
@@ -352,7 +363,7 @@ sub list($self, %options) {
     my $meta = $self->get_metadata;
     $folder_id = $meta->{id} if exists $meta->{id};
     if (! $folder_id && $self->rfile->to_string) {
-        $folder_id = $metadata_all{$self->rfile->to_string}->{parents}->[0] if exists $metadata_all{$self->rfile->to_string};
+        $folder_id = $self->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->metadata_all->{decode('UTF-8',$self->rfile->to_string)};
     }
     if ($self->pathfile && ! $folder_id) {
         ...;

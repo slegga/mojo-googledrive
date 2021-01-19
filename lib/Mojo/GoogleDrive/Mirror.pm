@@ -74,6 +74,7 @@ has state => sub {
     }
     return $state;
 };
+has metadata_all => sub{{}};
 =head2 INTERESTING_FIELDS
 
 Constant set to minimum meta data for a file.
@@ -430,7 +431,7 @@ sub http_request($self, $method,$url,$header='',@) {
 #    say $main_header;
     my @extra = @_;
     splice @extra,0,4;
-    say $method.' '.$url. join('#', map {ref $_ ? encode_json($_):'$_'} @extra);#, $main_header if $self->debug;
+    say $method.' '.$url.'#'. join('#', map {ref $_ ? encode_json($_):'$_'} @extra) if $self->debug;
     my $tx = $self->ua->$method($url, $main_header,@extra);
     my $code = $tx->res->code;
     if (!$code) {
@@ -438,7 +439,7 @@ sub http_request($self, $method,$url,$header='',@) {
         die "Timeout";
     }
     if ($code eq '404') {
-        say STDERR "BODY: " . $tx->res->body;
+        warn "BODY: " . $tx->res->body;
         my @err = @_;
         shift @err;
         die Dumper \@err;
@@ -459,10 +460,8 @@ sub http_request($self, $method,$url,$header='',@) {
     say scalar @{$return->{files}} if ref $return && exists $return->{files};
     if (ref $return eq 'HASH' && exists $return->{nextPageToken}) {
         my %real_return = %$return;
-        say "####################################################################";
+        say "####################################################################" if $self->debug;
         $url->query({pageToken=>$return->{nextPageToken}});
-        #$url .= "$url".''
-#        $url = "$url".'&pageToken='.$return->{nextPageToken}.'QQQ%3D%3D';
         $body = $self->http_request($method,$url,$header,@extra);
         $return = $body;
         #merge next page in result;
