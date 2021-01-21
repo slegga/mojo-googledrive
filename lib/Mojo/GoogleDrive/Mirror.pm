@@ -116,6 +116,21 @@ sub file($self,$pathfile) {
 
 }
 
+=head2 is_needing_sync
+
+Return true if in need of sync. Check if exists newer files locallly anf remote than last sync time.
+
+=cut
+
+sub is_needing_sync($self) {
+    my $old = $self->_read_from_epoch();
+    my @rfiles = $self->_get_remote_files($old);
+    return 1 if @rfiles;
+    my @localchange = grep {$old< $_} map { my @s = stat($_);$s[9] } grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+    return 1 if @localchange;
+    return 0;
+}
+
 =head2 sync
 
 Calculate diff with newly changed files local and remote. If both changes keep remote and overwrite local change.

@@ -79,6 +79,9 @@ sub simple_argv {
                 }
             }
         }
+
+        # Fix gd-sync.pl --debug
+        $return->{$key}=1 if ! exists $return->{$key};
     }
     return $return;
 }
@@ -88,6 +91,8 @@ sub simple_argv {
 
 my $config = simple_argv(@ARGV);
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"$ENV{HOME}/googledrive", remote_root=>'/', %$config);
-$o->sync();
-
+#say $o->is_needing_sync() ? 'Need sync now' : 'No need for sync';
+if ($o->is_needing_sync()) {
+    $o->sync();
+}
 
