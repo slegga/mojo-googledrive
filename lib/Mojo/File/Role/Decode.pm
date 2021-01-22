@@ -36,14 +36,24 @@ Same as to_string but decode the filename from filesystem.
 =cut
 
 sub to_plaintext {
-  my $self = shift;
-  my $encoding;
-  if( $ENV{LC_ALL}) {
-    $encoding= $ENV{LC_ALL};
+    my $self = shift;
+    my $encoding;
+    if( $ENV{LC_ALL}) {
+    $encoding= $ENV{LC_ALL}||$ENV{NAME};
     $encoding =~ s/^.*\.//;
-  }
-  $encoding = 'UTF-8' if ! $encoding;
-  return decode($encoding, $self->to_string);#, Encode::FB_CROAK);
+    }
+    $encoding = 'UTF-8' if ! $encoding;
+    my $string = $self->to_string;
+    my $return;
+    say $string;
+    my $ok = eval {
+        $return = decode($encoding, $string, Encode::FB_CROAK);
+        1;
+    };
+    if ($ok) {
+        return $return;
+    }
+    return $string;
 }
 
 1;

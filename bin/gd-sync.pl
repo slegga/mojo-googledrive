@@ -94,5 +94,7 @@ my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"$ENV{HOME}/googledrive", rem
 #say $o->is_needing_sync() ? 'Need sync now' : 'No need for sync';
 if ($o->is_needing_sync()) {
     $o->sync();
+} elsif ($config->{force}) {
+    $o->sync();
 }
 

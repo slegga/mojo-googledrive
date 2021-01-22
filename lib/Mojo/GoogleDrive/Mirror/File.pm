@@ -13,6 +13,7 @@ use open qw(:std :utf8);
 use utf8;
 use Digest::MD5 'md5_hex';
 use Const::Fast;
+use Encode 'encode';
 
 #use Mojo::Util 'url_escape';
 =head1 NAME
@@ -183,7 +184,8 @@ sub upload {
             $byte_size = length($local_file_content);
     }
     my $metadata = $self->get_metadata;
-    my $mcontent={name=>$metadata->{name}};
+    my $mcontent={name=>encode('UTF-8',$metadata->{name})};
+
     my $http_method = 'post';
     if (exists $metadata->{id} && $metadata->{id}) {
         say Dumper $metadata if $self->debug;
