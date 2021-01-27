@@ -9,15 +9,15 @@ requires 'to_string';
 
 Mojo::File::Role::Decode
 
-=head1 DESCRIPTION
-
-Role which give to_plaintext where a decode('UTF-8', $self->to_string is done.
-
 =head1 SYNOPSIS
 
     use Mojo::File;
     use Mojo::File::Role::Decode;
     my $filename = Mojo::File->new('file.txt')->with_roles('+Decode')->to_plaintext;
+
+=head1 DESCRIPTION
+
+Role which give to_plaintext where a decode('UTF-8', $self->to_string is done.
 
 =head1 ENVIRONMENT
 

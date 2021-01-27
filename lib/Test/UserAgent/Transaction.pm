@@ -7,6 +7,8 @@ Test::UserAgent::Transaction - Test object;
 
 =head1 SYNOPSIS
 
+    use Test::UserAgent;
+    my $ua = Test::UserAgent->new();
     my $tx = $ua->res->body;
 
 =head1 DESCRIPTION
