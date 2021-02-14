@@ -14,6 +14,7 @@ use utf8;
 use Digest::MD5 'md5_hex';
 use Const::Fast;
 use Encode 'encode';
+use Carp qw/carp confess/;
 
 #use Mojo::Util 'url_escape';
 =head1 NAME
@@ -427,7 +428,8 @@ sub make_path($self) {
     # path_resolve
     my @pathobjs = $self->path_resolve->each;
 #    shift @pathparts;
-    die "Uneven parts:".Dumper \@pathparts,\@pathobjs if @pathparts != @pathobjs;
+#    carp "Uneven parts:".Dumper \@pathparts,\@pathobjs if @pathparts != @pathobjs;
+#    die;
     my $main_header = {$self->{oauth}->authorization_headers()};
     my $parent='root';
     for my $i(0 .. $#pathobjs) {
