@@ -423,24 +423,28 @@ Make remote path if not exists.
 
 sub make_path($self) {
     # pathfile to array
-    warn $self->rfile->to_string;
-    my @pathparts = @{ path($self->rfile)->to_array};
+    my @pathparts = @{ path($self->rfile)->to_array}; #new path
     # path_resolve
-    my @pathobjs = $self->path_resolve->each;
+    my @pathobjs = $self->path_resolve->each; #old path from remote
 #    shift @pathparts;
-#    carp "Uneven parts:".Dumper \@pathparts,\@pathobjs if @pathparts != @pathobjs;
+    if (@pathparts != @pathobjs) {
+        warn "Uneven parts:". $#pathparts.'  '.$#pathobjs;
+        warn join(',',  @pathparts);
+        warn join(',', map{$_->pathfile()}@pathobjs );
+    }
 #    die;
     my $main_header = {$self->{oauth}->authorization_headers()};
     my $parent='root';
-    for my $i(0 .. $#pathobjs) {
+    for my $i(0 .. $#pathparts) {
         if (exists  $pathobjs[$i]->{id} && $pathobjs[$i]->{id}) {
             $parent = $pathobjs[$i]->{id};
             next ;
         }
-        next if ! $pathparts[$i] && $i == 0;
-        die Dumper $pathobjs[$i], \@pathparts,$i if ! $pathobjs[$i];
+        next if ! $pathparts[$i];
+#        die Dumper $pathobjs[$i], \@pathparts,$i if ! $pathobjs[$i];
         my$mcontent = { name => $pathparts[$i],mimeType=> 'application/vnd.google-apps.folder',parents=>[$parent] };
         # make dir
+    warn "Make dir". Dumper $mcontent;;
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
