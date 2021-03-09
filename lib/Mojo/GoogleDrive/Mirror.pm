@@ -320,7 +320,7 @@ if(1) { # turn of query remote when develop local
     $self->file($_)->upload   for (@pathfile_upload);
     for my $d(@pathfile_deleted) {
         my $destiny = path($ENV{HOME},'.googledrive','conflict-removed',$d);
-        warn "delete $d";
+        say "delete $d";
         $destiny->dirname->make_path;
         path($self->local_root,$d)->move("$destiny");
     }
