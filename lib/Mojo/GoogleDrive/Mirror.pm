@@ -349,7 +349,7 @@ sub clean_remote_duplicates($self) {
 # delete newer versions of a file.
     for my $k(keys %files_h) {
         if (scalar @{$files_h{$k}} > 1) {
-            say $k;
+#            say $k;
 
             # get min date
             my $min='ZZ';
