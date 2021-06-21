@@ -428,9 +428,10 @@ sub make_path($self) {
     my @pathobjs = $self->path_resolve->each; #old path from remote
 #    shift @pathparts;
     if (@pathparts != @pathobjs) {
-        warn "Uneven parts:". $#pathparts.'  '.$#pathobjs;
-        warn join(',',  @pathparts);
-        warn join(',', map{$_->pathfile()}@pathobjs );
+        say STDERR "Uneven parts:". $#pathparts.'  '.$#pathobjs;
+        say STDERR  '->rfile:  '.join(',',map{$_//'__UNDEF__'}  @pathparts);
+        say STDERR  "->path_resolve: ".join(',',map{$_//'__UNDEF__'}  map{$_->pathfile()} @pathobjs );
+        die;
     }
 #    die;
     my $main_header = {$self->{oauth}->authorization_headers()};
@@ -448,6 +449,7 @@ sub make_path($self) {
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
+#    die "Temporary problem with duplicates. Check for duplicates, and if not exists create at drive.google.com";
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);

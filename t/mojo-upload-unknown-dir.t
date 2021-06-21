@@ -3,7 +3,7 @@ use lib 'lib';
 use Mojo::GoogleDrive::Mirror;
 use Data::Printer;
 use Mojo::File 'path';
-use Test::More;
+use Test::More skip_all => $reason;
 use Test::UserAgent;
 use Data::Dumper;
 
