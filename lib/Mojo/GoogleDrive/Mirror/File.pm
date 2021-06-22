@@ -133,7 +133,7 @@ Look up cashed data, if not as google drive for an update.
 sub get_metadata($self,$full = 0) {
     my $metadata;
     $metadata = $self->metadata if ( ref $self->metadata);
-    if (! ref $metadata || ! keys %$metadata) {
+    if (! ref $metadata || ! keys %$metadata || ! $metadata->{kind}) {
         $metadata = $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     my @pathobj;
@@ -374,6 +374,7 @@ sub list($self, %options) {
         $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     if ($self->pathfile && ! $folder_id) {
+        say STDERR "Did not found:  ".$self->rfile->to_plaintext;
         ...;
         return;
     }
@@ -443,11 +444,11 @@ sub make_path($self) {
 #        die Dumper $pathobjs[$i], \@pathparts,$i if ! $pathobjs[$i];
         my$mcontent = { name => $pathparts[$i],mimeType=> 'application/vnd.google-apps.folder',parents=>[$parent] };
         # make dir
-    warn "Make dir". Dumper $mcontent;;
+    say STDERR "Make dir: ". Dumper $mcontent;;
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
-    die "Temporary problem with duplicates. Check for duplicates, and if not exists create at drive.google.com";
+    die "Temporary problem with duplicates. Check for duplicates, and if not exists create at drive.google.com this folder: ".join('/',@pathparts);
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);

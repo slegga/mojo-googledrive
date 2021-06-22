@@ -76,6 +76,7 @@ has state => sub {
     return $state;
 };
 has metadata_all => sub{{}};
+
 =head2 INTERESTING_FIELDS
 
 Constant set to minimum meta data for a file.
