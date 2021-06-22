@@ -57,6 +57,7 @@ Basically a producer of Mojo::GoogleDrive::Mirror::File
 
 =cut
 
+has 'force1'; # TODO: if set make one catalog. For use if manual check concludes that this catalog is needed.
 has remote_root => '/';
 has 'local_root';
 has api_file_url => "https://www.googleapis.com/drive/v3/files/";

@@ -448,7 +448,14 @@ sub make_path($self) {
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
-    die "Temporary problem with duplicates. Check for duplicates, and if not exists create at drive.google.com this folder: ".join('/',@pathparts);
+        if($self->mgm->force1) {
+           $self->mgm->force1(0);
+        } lese {
+            say STDERR "Temporary problem with duplicates.";
+            say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
+            say STDERR "If not exists run again with --force1 1 option";
+            die;
+        }
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
