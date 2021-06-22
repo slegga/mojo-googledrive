@@ -450,7 +450,7 @@ sub make_path($self) {
         say $urlstring  if $self->debug;
         if($self->mgm->force1) {
            $self->mgm->force1(0);
-        } lese {
+        } else {
             say STDERR "Temporary problem with duplicates.";
             say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
             say STDERR "If not exists run again with --force1 1 option";
@@ -466,6 +466,7 @@ sub make_path($self) {
         }
         $parent = $meta->{id};
         $self->metadata($meta); # the last item will have the meta data
+
     }
     return $self;
 }
