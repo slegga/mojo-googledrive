@@ -424,6 +424,11 @@ Make remote path if not exists.
 
 sub make_path($self) {
     # pathfile to array
+    my $ma = $self->mgm->metadata_all;
+    if (exists $ma->{$self->rfile}) {
+        die $self->rfile ." exists, please debug and figure out why this duplicate exists";
+        return $self;
+    }
     my @pathparts = @{ path($self->rfile)->to_array}; #new path
     # path_resolve
     my @pathobjs = $self->path_resolve->each; #old path from remote
@@ -459,11 +464,8 @@ sub make_path($self) {
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
-        {
-            my $ma = $self->mgm->metadata_all;
-            $ma->{$self->rfile->to_plaintext} = $meta;
-            $self->mgm->metadata_all($ma);
-        }
+        $ma->{$self->rfile->to_plaintext} = $meta;
+        $self->mgm->metadata_all($ma);
         $parent = $meta->{id};
         $self->metadata($meta); # the last item will have the meta data
 
