@@ -351,7 +351,6 @@ sub clean_remote_duplicates($self) {
 # delete newer versions of a file.
     for my $k(keys %files_h) {
         if (scalar @{$files_h{$k}} > 1) {
-#            say $k;
 
             # get min date
             my $min='ZZ';
@@ -365,9 +364,11 @@ sub clean_remote_duplicates($self) {
             my $deleted_count=0;
             for my $dup(@{$files_h{$k}}) {
                 if ($min ne $dup->{modifiedTime}) {
-                    say $k;
                     my $res = $self->http_request('delete',$self->api_file_url . $dup->{id});
-                    die Dumper $res if $res;
+                    if ($res) {
+                        say STDERR $k;
+                        die Dumper $res ;
+                    }
 
                 }
                 $deleted_count++;
@@ -381,7 +382,7 @@ sub clean_remote_duplicates($self) {
     for my $f(@rfiles) {
         die encode_json($f)if ! exists $f->{size};
         if ($f->{size} == 0) {
-                    say Dumper $f;
+                    say STDERR Dumper $f;
                     my $res = $self->http_request('delete',$self->api_file_url . $f->{id});
                     die Dumper $res if $res;
         }
@@ -447,7 +448,6 @@ sub http_request($self, $method,$url,$header='',@) {
     $main_header = $header if $header;
     my %tmp_header = $self->{oauth}->authorization_headers();
     $main_header->{$_} = $tmp_header{$_} for keys %tmp_header;
-#    say $main_header;
     my @extra = @_;
     splice @extra,0,4;
     say $method.' '.$url.'#'. join('#', map {ref $_ ? encode_json($_):'$_'} @extra) if $self->debug;
@@ -474,7 +474,7 @@ sub http_request($self, $method,$url,$header='',@) {
     } else {
         $return = decode_json($body);
     }
-    say scalar @{$return->{files}} if ref $return && exists $return->{files};
+    say scalar @{$return->{files}} if ref $return && exists $return->{files} &&  $self->debug;
     if (ref $return eq 'HASH' && exists $return->{nextPageToken}) {
         my %real_return = %$return;
         say "####################################################################" if $self->debug;
@@ -488,7 +488,7 @@ sub http_request($self, $method,$url,$header='',@) {
             } elsif($x eq 'nextPageToken') {
                 # ignore
             } else {
-                say $x;
+                say STDERR $x;
                 ...;
             }
         }

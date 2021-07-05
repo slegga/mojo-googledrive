@@ -45,7 +45,7 @@ sub to_plaintext {
     $encoding = 'UTF-8' if ! $encoding;
     my $string = $self->to_string;
     my $return;
-    say $string;
+#    say $string;
     my $ok = eval {
         $return = decode($encoding, $string, Encode::FB_CROAK);
         1;
