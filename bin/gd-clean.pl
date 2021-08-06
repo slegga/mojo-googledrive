@@ -1,11 +1,16 @@
 #!/usr/bin/env perl
 use lib 'lib';
 use Mojo::Base -strict;
-use Mojo::GoogleDrive::Mirror;
 use Data::Printer;
 use Mojo::File qw/path curfile/;
 use OAuth::Cmdline::GoogleDrive;
 use Data::Dumper;
+my $curlib;
+BEGIN {
+    $curlib = curfile->dirname->dirname->child('lib')->to_string;
+};
+use lib $curlib;
+use Mojo::GoogleDrive::Mirror;
 
 # REMOVE EMPTY FOLDERS
 
