@@ -105,6 +105,7 @@ Return a new file object.
 =cut
 
 sub file($self,$pathfile) {
+    die "file is undef " if ! $pathfile;
     my $opts ={};
     for my $key(qw/remote_root local_root api_file_url api_upload_url oauth debug/) {
         $opts->{$key} = $self->$key if ($self->can($key));

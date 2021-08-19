@@ -95,6 +95,7 @@ Full remote file path.
 =cut
 
 sub rfile($self) {
+    die "pathfile not set" if ! defined $self->pathfile;
     $self->remote_root('/') if ! $self->remote_root;
     return path($self->remote_root)->child($self->pathfile);
 }
@@ -133,7 +134,10 @@ Look up cashed data, if not as google drive for an update.
 sub get_metadata($self,$full = 0) {
     my $metadata;
     $metadata = $self->metadata if ( ref $self->metadata);
-    if (! ref $metadata || ! keys %$metadata || ! $metadata->{kind}) {
+    if (! $self->pathfile) {
+        die "Missing pathfile";
+    }
+    if(  (! ref $metadata || ! keys %$metadata || ! $metadata->{kind})) {
         $metadata = $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     my @pathobj;
@@ -316,11 +320,12 @@ sub path_resolve($self,$full=0) {
         }
         $tmppath = $tmppath->child($part);
         my %param=(name=>$part);
+        $param{full}=$full;
         if ($i<$#parts) {
             $param{dir_only}=1;
         }
-        $param{full}=$full;
-        my @children = $dir->list(%param)->each;
+        my @children;
+        @children = $dir->list(%param)->each ;#if $param{dir_only};
 
         $old_part=$part;
         if (! @children) {
@@ -368,9 +373,10 @@ Return Mojo::Collection of files if object is a directory. Else return empty.
 sub list($self, %options) {
     my $folder_id;
     my @return;
-    my $meta = $self->get_metadata;
+    my $meta;
+    $meta = $self->get_metadata if $self->pathfile;
     $folder_id = $meta->{id} if exists $meta->{id};
-    if (! $folder_id && $self->rfile->to_string) {
+    if ($self->pathfile && ! $folder_id && $self->rfile->to_string) {
         $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->mgm->metadata_all->{$self->rfile->to_plaintext};
     }
     if ($self->pathfile && ! $folder_id) {
@@ -493,6 +499,10 @@ sub download($self) {
             return $self;
         }
     } elsif ($self->{pathfile}) {
+        say Dumper $self;
+        $DB::single=2;
+        my $meta =  $self->get_metadata;
+        say Dumper $meta;
         ...;
     } else {
         ...;
@@ -516,16 +526,22 @@ sub remove($self) {
         $message .= 'Removed local file: '.$self->lfile->to_string;
     }
     my $meta = $self->get_metadata;
+
     if (! $meta->{id}) {
-        $meta = $self->path_resolve->last->get_metadata;
+        my $remote_file = $self->path_resolve->last;
+        if (! $remote_file->pathfile) {
+            $message .= ($message?"\n":'')."Remote file not found2 ". $self->rfile->to_string;
+            return $self->last_message($message);
+        }
+        $meta = $remote_file->get_metadata;
     }
     if ($meta->{id}) {
         my $res = $self->mgm->http_request('delete',$self->mgm->api_file_url . $meta->{id});
         die $res if $res; #empty if success
-        $message .= 'Removed remote file: '.$self->rfile->to_string;
-        my $delete_file = $self->mgm->file($self->delete_archive)->lfile;
-        my $delete_content = $delete_file->slurp;
-        $self->mgm->file($self->delete_archive)->lfile->to_string.';'. $self->pathfile;
+        $message .= ($message?"\n":'').'Removed remote file: '.$self->rfile->to_string;
+        # my $delete_file = $self->mgm->file($self->delete_archive)->lfile;
+        # my $delete_content = $delete_file->slurp;
+        # $self->mgm->file($self->lfile)->to_string.';'. $self->pathfile;
     } else {
         $message .= 'Remote file not found '. $self->rfile->to_string;
     }
