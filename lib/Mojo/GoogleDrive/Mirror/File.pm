@@ -389,9 +389,12 @@ sub list($self, %options) {
     if ($options{dir_only}) {
         $opts->{q} = q_and($opts->{q},"mimeType = 'application/vnd.google-apps.folder'");
     }
-
-    $opts->{q} = q_and($opts->{q},"'$folder_id' in parents");
-
+    if ($folder_id) {
+        $opts->{q} = q_and($opts->{q},"'$folder_id' in parents");
+    } else {
+        my $m  = $self->metadata;
+        warn Dumper $m;
+    }
     if ($options{name}) {
         $opts->{q} = q_and($opts->{q},"name = '$options{name}'");
     }
