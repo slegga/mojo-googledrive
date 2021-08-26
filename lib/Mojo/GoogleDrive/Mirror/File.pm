@@ -391,7 +391,7 @@ sub list($self, %options) {
     }
     if ($folder_id) {
         $opts->{q} = q_and($opts->{q},"'$folder_id' in parents");
-    } else {
+    } elsif ($self->debug) {
         my $m  = $self->metadata;
         warn Dumper $m;
     }
