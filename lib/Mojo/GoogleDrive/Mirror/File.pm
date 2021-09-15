@@ -391,9 +391,18 @@ sub list($self, %options) {
     }
     if ($folder_id) {
         $opts->{q} = q_and($opts->{q},"'$folder_id' in parents");
-    } else {
+    } elsif(0) {
         my $m  = $self->metadata;
         warn Dumper $m;
+#        $VAR1 = {
+#                  'modifiedTime' => '2013-10-19T11:06:57.289Z',
+#                  'name' => 'Min disk',
+#                  'trashed' => bless( do{\(my $o = 0)}, 'JSON::PP::Boolean' ),
+#                  'explicitlyTrashed' => $VAR1->{'trashed'},
+#                  'kind' => 'drive#file',
+#                  'id' => '0ANHqv-el496wUk9PVA',
+#                  'mimeType' => 'application/vnd.google-apps.folder'
+#                };
     }
     if ($options{name}) {
         $opts->{q} = q_and($opts->{q},"name = '$options{name}'");
