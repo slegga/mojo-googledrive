@@ -381,8 +381,9 @@ sub list($self, %options) {
     }
     if ($self->pathfile && ! $folder_id) {
         say STDERR "Did not found:  ".$self->rfile->to_plaintext;
-        ...;
-        return;
+        say STDERR "Must create directory on remote";
+        $folder_id = $self->make_path->get_metadata->{id};
+        die "No folder_id. Please, part the line above and figure out whats wrong" if ! $folder_id;
     }
     my    $opts= \%options;
     $opts->{q} = '' ;
