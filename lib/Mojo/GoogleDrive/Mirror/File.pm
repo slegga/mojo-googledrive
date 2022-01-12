@@ -97,7 +97,13 @@ Full remote file path.
 sub rfile($self) {
     die "pathfile not set" if ! defined $self->pathfile;
     $self->remote_root('/') if ! $self->remote_root;
-    return path($self->remote_root)->child($self->pathfile);
+    my $pfs = $self->pathfile;
+    if (substr($self->remote_root,length($self->remote_root)-1,1) eq '/' 
+    && substr($pfs,0,1) eq '/') {
+        return path($self->remote_root)->child(substr($pfs,1));
+    } else {
+        return path($self->remote_root)->child($pfs);
+    }
 }
 
 =head2 need_sync
@@ -453,7 +459,7 @@ sub make_path($self) {
     my @pathobjs = $self->path_resolve->each; #old path from remote
 #    shift @pathparts;
     if (@pathparts != @pathobjs) {
-        say STDERR "Uneven parts:". $#pathparts.'  '.$#pathobjs;
+        say STDERR "Uneven parts:". ($#pathparts+1).'  '.($#pathobjs+1);
         say STDERR  '->rfile:  '.join(',',map{$_//'__UNDEF__'}  @pathparts);
         say STDERR  "->path_resolve: ".join(',',map{$_//'__UNDEF__'}  map{$_->pathfile()} @pathobjs );
     }
@@ -478,7 +484,7 @@ sub make_path($self) {
             say STDERR "Temporary problem with duplicates.";
             say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
             say STDERR "If not exists run again with --force1 1 option";
-            die;
+#            die;
         }
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
