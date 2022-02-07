@@ -98,7 +98,7 @@ sub rfile($self) {
     die "pathfile not set" if ! defined $self->pathfile;
     $self->remote_root('/') if ! $self->remote_root;
     my $pfs = $self->pathfile;
-    if (substr($self->remote_root,length($self->remote_root)-1,1) eq '/' 
+    if (substr($self->remote_root,length($self->remote_root)-1,1) eq '/'
     && substr($pfs,0,1) eq '/') {
         return path($self->remote_root)->child(substr($pfs,1));
     } else {
@@ -383,12 +383,18 @@ sub list($self, %options) {
     $meta = $self->get_metadata if $self->pathfile;
     $folder_id = $meta->{id} if exists $meta->{id};
     if ($self->pathfile && ! $folder_id && $self->rfile->to_string) {
-        $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] if exists $self->mgm->metadata_all->{$self->rfile->to_plaintext};
+        if (exists $self->mgm->metadata_all->{$self->rfile->to_plaintext}) {
+            $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] ;
+        } else {
+            say Dumper $self->mgm->metadata_all->{$self->rfile->to_string};
+            ...;
+        }
+
     }
     if ($self->pathfile && ! $folder_id) {
-        say STDERR "Did not found:  ".$self->rfile->to_plaintext;
-        say STDERR "Must create directory on remote";
-        $folder_id = $self->make_path->get_metadata->{id};
+        say STDERR "Did not found:  ".$self->rfile->to_plaintext ."  ".$self->pathfile."  ".$folder_id;
+#        say STDERR "Must create directory on remote";
+#        $folder_id = $self->make_path->get_metadata->{id};
         die "No folder_id. Please, part the line above and figure out whats wrong" if ! $folder_id;
     }
     my    $opts= \%options;
