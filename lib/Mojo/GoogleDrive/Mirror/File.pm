@@ -139,7 +139,8 @@ Look up cashed data, if not as google drive for an update.
 
 sub get_metadata($self,$full = 0) {
     my $metadata;
-    $metadata = $self->metadata if ( ref $self->metadata);
+    my $debug='';
+    $metadata = $self->metadata if ( ref $self->metadata eq 'HASH' && keys %{ $self->metadata } );
     if (! $self->pathfile) {
         die "Missing pathfile";
     }
@@ -171,6 +172,70 @@ sub get_metadata($self,$full = 0) {
         say scalar @pathobj." $#pathobj"  if $self->debug;
         say $self->rfile  if $self->debug;
         say Dumper $metadata  if $self->debug;
+    }
+    if (! keys %$metadata) { # Look up sentral for data
+        my $name = path($self->rfile)->basename;
+        my $fields = (0 ? '*' : $INTERESTING_FIELDS);
+        my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false ");
+        say $url  if $self->debug;
+        my $metas = $self->mgm->http_request('get',$url,'')->{files};
+        if (@$metas > 1) {
+             # get parent name
+             my @path = @{ path($self->rfile)->to_array };
+             pop @path;
+            my $parent_basename = $path[-1];
+            my $pmetas;
+            my $purl;
+
+            if ($parent_basename) {
+                $purl = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$parent_basename' and trashed = false  and mimeType = 'application/vnd.google-apps.folder'");
+                # TODO: add "and (id = $metas->[0]->{id} or id = $metas->[1]->{id} ....)";
+
+                 say $purl  if $self->debug;
+                 $pmetas = $self->mgm->http_request('get',$purl,'')->{files};
+            } else {
+                #get root
+                my $rurl = Mojo::URL->new($self->mgm->api_file_url)->path('root')->query(fields => 'id,name');
+
+                say $rurl if $self->debug;
+                $pmetas = [ $self->mgm->http_request('get',$rurl,'') ];
+
+            }
+
+             # Lookup parent
+             if (@$pmetas != 1)  {
+                if (! @$pmetas) {
+                    say $purl;
+                    die "parent not found";
+                }
+                warn Dumper $pmetas;
+                warn "More than one parent folder found";
+                die "See TODO above: and (id=....";
+            }
+#            say Dumper $pmetas;
+            my @res = grep {$_->{parents}->[0] eq $pmetas->[0]->{id}} @$metas;
+            if (@res != 1) {
+                if (! @res) {
+                    say "No result. String to get_metadata ". $self->rfile->to_string;
+                    warn Dumper $pmetas;
+                } else {
+                    warn Dumper @res;
+                }
+                die;
+            }
+            $metadata = $res[0];
+        } elsif(@$metas == 0) {
+#            say $url;
+#            ...;
+            #file does not exists
+            return undef;
+        } else {
+            $metadata = $metas->[0];
+        }
+
+        my $ma=$self->mgm->metadata_all;
+        $ma->{$self->rfile->to_string} = $metadata;
+        $self->mgm->metadata_all($ma);
     }
     return $metadata;
 }
@@ -279,7 +344,7 @@ sub file_mime_type($self) {
 
 =head2 path_resolve
 
-    $collectonoffiles = $file->path_resolve;
+    $collectionoffiles = $file->path_resolve;
 
 Get File objects for each element in path include. First element is root and last is the actual file.
 
@@ -387,6 +452,8 @@ sub list($self, %options) {
             $folder_id = $self->mgm->metadata_all->{$self->rfile->to_string}->{parents}->[0] ;
         } else {
             say Dumper $self->mgm->metadata_all->{$self->rfile->to_string};
+            say $self->rfile->to_plaintext . ' --- ' . $self->rfile->to_string;
+            say Dumper $meta ;
             ...;
         }
 
