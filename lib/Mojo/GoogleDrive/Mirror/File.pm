@@ -15,6 +15,7 @@ use Digest::MD5 'md5_hex';
 use Const::Fast;
 use Encode 'encode';
 use Carp qw/carp confess/;
+use Hash::Merge; #export merge
 
 #use Mojo::Util 'url_escape';
 =head1 NAME
@@ -173,12 +174,13 @@ sub get_metadata($self,$full = 0) {
         say $self->rfile  if $self->debug;
         say Dumper $metadata  if $self->debug;
     }
-    if (! keys %$metadata) { # Look up sentral for data
+    if (! exists $metadata->{id}) { # Look up sentral for data
         my $name = path($self->rfile)->basename;
         my $fields = (0 ? '*' : $INTERESTING_FIELDS);
         my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false ");
         say $url  if $self->debug;
         my $metas = $self->mgm->http_request('get',$url,'')->{files};
+        my $merger = Hash::Merge->new('RIGHT_PRECEDENT');
         if (@$metas > 1) {
              # get parent name
              my @path = @{ path($self->rfile)->to_array };
@@ -223,14 +225,14 @@ sub get_metadata($self,$full = 0) {
                 }
                 die;
             }
-            $metadata = $res[0];
+            $metadata = $merger->merge($metadata, $res[0]);
         } elsif(@$metas == 0) {
 #            say $url;
 #            ...;
             #file does not exists
             return undef;
         } else {
-            $metadata = $metas->[0];
+            $metadata = $merger->merge($metadata, $metas->[0]);
         }
 
         my $ma=$self->mgm->metadata_all;
@@ -591,9 +593,9 @@ sub download($self) {
             return $self;
         }
     } elsif ($self->{pathfile}) {
-        say Dumper $self;
+#        say Dumper $self;
         $DB::single=2;
-        my $meta =  $self->get_metadata;
+        my $meta =  $self->get_metadata();
         say Dumper $meta;
         ...;
     } else {
