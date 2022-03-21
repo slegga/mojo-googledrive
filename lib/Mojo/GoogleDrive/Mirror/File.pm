@@ -229,8 +229,16 @@ sub get_metadata($self,$full = 0) {
         } elsif(@$metas == 0) {
 #            say $url;
 #            ...;
-            #file does not exists
-            return undef;
+            #file does not exists remote but local return what we got
+            if (exists $metadata->{id}) {
+                say STDERR Dumper $metadata;
+                die "Should not return id if not exists remote";
+            }
+            if (! -e $self->lfile->to_string ) {
+                # Loaal file does not exists either.
+                return undef;
+            }
+            return $metadata;
         } else {
             $metadata = $merger->merge($metadata, $metas->[0]);
         }
@@ -261,6 +269,7 @@ sub upload {
             use bytes;
             $byte_size = length($local_file_content);
     }
+$DB::single=2;
     my $metadata = $self->get_metadata;
     my $mcontent={name=>encode('UTF-8',$metadata->{name})};
 
@@ -281,7 +290,7 @@ sub upload {
         return $self;
     }
     $main_header ->{'Content-Type'} = 'multipart/related';
-    $mcontent->{parents} = $metadata->{parents} if exists $metadata->{parents} && $metadata->{parents};
+    $mcontent->{parents} = $metadata->{parents} if exists $metadata->{parents} && @{$metadata->{parents}};
 
     # create missing folders if not exists
     if (exists $mcontent->{parents}->[0] && ! defined $mcontent->{parents}->[0]) {
@@ -298,6 +307,8 @@ sub upload {
         # root
 #        ...;
     } else {
+        say STDERR Dumper $mcontent;
+        say STDERR Dumper $metadata;
         die "Should never come here";
     }
 
