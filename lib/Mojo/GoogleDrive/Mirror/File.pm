@@ -467,7 +467,7 @@ sub list($self, %options) {
             say Dumper $self->mgm->metadata_all->{$self->rfile->to_string};
             say $self->rfile->to_plaintext . ' --- ' . $self->rfile->to_string;
             say Dumper $meta ;
-            ...;
+            ...; # exists only local should sync.
         }
 
     }
