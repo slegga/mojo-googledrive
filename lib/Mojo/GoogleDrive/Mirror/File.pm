@@ -235,7 +235,7 @@ sub get_metadata($self,$full = 0) {
                 die "Should not return id if not exists remote";
             }
             if (! -e $self->lfile->to_string ) {
-                # Loaal file does not exists either.
+                # Local file does not exists either.
                 return undef;
             }
             return $metadata;
@@ -312,6 +312,7 @@ $DB::single=2;
         die "Should never come here";
     }
 
+    # create the new file
     my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', 'Content-Length'=>$byte_size, content => to_json($mcontent),};
 
     my $urlstring = Mojo::URL->new($self->mgm->api_upload_url)->query(uploadType=>'multipart',fields=> $INTERESTING_FIELDS)->to_string;
@@ -467,14 +468,14 @@ sub list($self, %options) {
             say Dumper $self->mgm->metadata_all->{$self->rfile->to_string};
             say $self->rfile->to_plaintext . ' --- ' . $self->rfile->to_string;
             say Dumper $meta ;
-            ...; # exists only local should sync.
+#            ...; # exists only local should sync.
         }
 
     }
     if ($self->pathfile && ! $folder_id) {
-        say STDERR "Did not found:  ".$self->rfile->to_plaintext ."  ".$self->pathfile."  ".$folder_id;
-#        say STDERR "Must create directory on remote";
-#        $folder_id = $self->make_path->get_metadata->{id};
+        say STDERR "Did not found:  ".$self->rfile->to_plaintext ."  ".$self->pathfile."  ".($folder_id//'undef');
+        say STDERR "Must create directory on remote";
+        $folder_id = $self->make_path->get_metadata->{id};
         die "No folder_id. Please, part the line above and figure out whats wrong" if ! $folder_id;
     }
     my    $opts= \%options;
@@ -537,7 +538,9 @@ sub make_path($self) {
     # pathfile to array
     my $ma = $self->mgm->metadata_all;
     if (exists $ma->{$self->rfile}) {
-        die $self->rfile ." exists, please debug and figure out why this duplicate exists";
+        $self->{metadata} = $ma->{$self->rfile};
+        warn $self->rfile ." exists on remote. Return self";
+        # file exists
         return $self;
     }
     my @pathparts = @{ path($self->rfile)->to_array}; #new path
@@ -552,26 +555,31 @@ sub make_path($self) {
     my $main_header = {$self->{oauth}->authorization_headers()};
     my $parent='root';
     for my $i(0 .. $#pathparts) {
-        if (exists  $pathobjs[$i]->{id} && $pathobjs[$i]->{id}) {
-            $parent = $pathobjs[$i]->{id};
+        if (exists  $pathobjs[$i]->{metadata}->{id} && $pathobjs[$i]->{metadata}->{id}) {
+            $parent = $pathobjs[$i]->{metadata}->{id};
             next ;
         }
         next if ! $pathparts[$i];
 #        die Dumper $pathobjs[$i], \@pathparts,$i if ! $pathobjs[$i];
-        my$mcontent = { name => $pathparts[$i],mimeType=> 'application/vnd.google-apps.folder',parents=>[$parent] };
+        my $mcontent = { name => $pathparts[$i],mimeType=> 'application/vnd.google-apps.folder',parents=>[$parent] };
         # make dir
-    say STDERR "Make dir: ". Dumper $mcontent;;
+    say STDERR "Make dir: ". Dumper $mcontent;
         my $metapart = {'Content-Type' => 'application/json; charset=UTF-8', content => to_json($mcontent),};
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
-        if($self->mgm->force1) {
-           $self->mgm->force1(0);
-        } else {
-            say STDERR "Temporary problem with duplicates.";
-            say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
-            say STDERR "If not exists run again with --force1 1 option";
-#            die;
-        }
+        
+        # Tror dette skal virke nå. Kommenterer ut beskyttelse
+        #if($self->mgm->force1) {
+        #   $self->mgm->force1(0);
+        #} else {
+        #    say STDERR "Temporary problem with duplicates.";
+        #    say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
+        #    say STDERR "If not exists run again with --force1 1 option";
+        #    delete $pathobjs[$i]->{mgm};
+        #    delete $pathobjs[$i]->{ua};
+        #    say Dumper $pathobjs[$i];
+        #    die;
+        #}
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
