@@ -129,7 +129,7 @@ sub is_needing_sync($self) {
     my $old = $self->_read_from_epoch();
     my @rfiles = $self->_get_remote_files($old);
     return 1 if @rfiles;
-    my @localchange = grep {$old< $_} map { my @s = stat($_);$s[9] } grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+    my @localchange = grep {$old< $_} map { my @s = stat($_);$s[9]>$s[10]?$s[9]:$s[10] } grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     return 1 if @localchange;
     return 0;
 }
