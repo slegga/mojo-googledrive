@@ -187,8 +187,9 @@ sub get_metadata($self,$full = 0) {
         say Dumper $metadata  if $self->debug;
     }
     if ( ! exists $metadata->{id}  ) { # Look up sentral for data
-        if ( ! exists $metadata->{parents}->[0] ) {
-            return $metadata;
+        if (! exists $metadata->{parents} || ! exists $metadata->{parents}->[0] ) {
+            return $metadata if keys %$metadata;
+            return undef;
         }
         my $name = path($self->rfile)->basename;
         my $fields = (0 ? '*' : $INTERESTING_FIELDS);

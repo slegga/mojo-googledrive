@@ -166,7 +166,19 @@ die "Missing local_root" if ! $self->ua->local_root;
                 $hash->{id} = $hash->{parents}->[0] .'/'. $hash->{name};
             }
             path($self->ua->real_remote_root)->child($hash->{id})->spurt($self->ua->payload->{content});
-            return encode_json($self->ua->metadata);
+            my $metadata = $self->ua->metadata;
+
+            # recontruct metadata if missing
+            if (exists $metadata->{content}){
+                $metadata = $self->ua->get_metadata_from_file(path($self->ua->real_remote_root)->child($hash->{id}));
+ #               for my $k ( keys %$meta ) {
+#                    $metadata->{$k} = $meta->{$k};
+#                }
+#                delete $metadata->{content};
+#                die Dumper $meta;
+
+            }
+            return encode_json($metadata);
         }
         if ( $self->ua->url =~ m|https:\/\/www\.googleapis\.com\/drive\/v3\/files\/\?fields\=id\%2Ckind\%2Cname\%2CmimeType\%2Cparents\%2CmodifiedTime\%2Ctrashed\%2CexplicitlyTrashed\%2Cmd5Checksum|) {
             my $header = $self->ua->header;
