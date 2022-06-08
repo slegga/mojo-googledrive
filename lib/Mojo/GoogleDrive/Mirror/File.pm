@@ -165,19 +165,34 @@ sub get_metadata($self,$full = 0) {
         };
         $metadata->{mimeType}=$self->file_mime_type if -e $self->pathfile;
         $metadata->{name} = path($self->rfile)->basename;
-        #$metadata->{name} = decode('UTF-8',path($self->rfile)->basename);
         if (exists $pathobj[$#pathobj -1]) {
-            $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
+            if ($pathobj[$#pathobj -1]->{id}) {
+                $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
+            } else {
+                $pathobj[$#pathobj -1] = $self->mgm->file(path($self->rfile)->dirname->to_string)->get_metadata;
+                if ($pathobj[$#pathobj -1]->{id}) {
+                    $metadata->{parents} = [$pathobj[$#pathobj -1]->{id}];
+                }
+                else {
+                    # new file in new dir. Return
+                    return $metadata;
+                }
+            }
+        } else {
+            die "Parent did not exists ".path($self->rfile)->dirname;
         }
         $metadata->{modifiedTime} = (stat( $self->{pathfile}))[9]; #convert to google timeformat
         say scalar @pathobj." $#pathobj"  if $self->debug;
         say $self->rfile  if $self->debug;
         say Dumper $metadata  if $self->debug;
     }
-    if (! exists $metadata->{id}) { # Look up sentral for data
+    if ( ! exists $metadata->{id}  ) { # Look up sentral for data
+        if ( ! exists $metadata->{parents}->[0] ) {
+            return $metadata;
+        }
         my $name = path($self->rfile)->basename;
         my $fields = (0 ? '*' : $INTERESTING_FIELDS);
-        my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false ");
+        my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false and $metadata->{parents}->[0] in parents");
         say $url  if $self->debug;
         my $metas = $self->mgm->http_request('get',$url,'')->{files};
         my $merger = Hash::Merge->new('RIGHT_PRECEDENT');
@@ -293,7 +308,7 @@ $DB::single=2;
     $mcontent->{parents} = $metadata->{parents} if exists $metadata->{parents} && @{$metadata->{parents}};
 
     # create missing folders if not exists
-    if (exists $mcontent->{parents}->[0] && ! defined $mcontent->{parents}->[0]) {
+    if (! exists $mcontent->{parents}->[0] || ! defined $mcontent->{parents}->[0]) {
         my $path_string = path($self->pathfile)->dirname->to_string;
         my $rpath = $self->{mgm}->file($path_string);
         $rpath->make_path;
@@ -307,8 +322,8 @@ $DB::single=2;
         # root
 #        ...;
     } else {
-        say STDERR Dumper $mcontent;
-        say STDERR Dumper $metadata;
+        say STDERR '$mcontent' . Dumper $mcontent;
+        say STDERR '$metadata' . Dumper $metadata;
         die "Should never come here";
     }
 
