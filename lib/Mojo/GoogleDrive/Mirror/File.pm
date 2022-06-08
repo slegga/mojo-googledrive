@@ -193,7 +193,7 @@ sub get_metadata($self,$full = 0) {
         }
         my $name = path($self->rfile)->basename;
         my $fields = (0 ? '*' : $INTERESTING_FIELDS);
-        my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false and $metadata->{parents}->[0] in parents");
+        my $url = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$name' and trashed = false and '$metadata->{parents}->[0]' in parents");
         say $url  if $self->debug;
         my $metas = $self->mgm->http_request('get',$url,'')->{files};
         my $merger = Hash::Merge->new('RIGHT_PRECEDENT');
