@@ -618,12 +618,19 @@ sub download($self) {
             $self->lfile->spurt( $content );
             return $self;
         }
-    } elsif ($self->{pathfile}) {
+    } elsif ( $self->pathfile ) {
 #        say Dumper $self;
+
+        say "Pathfile".$self->pathfile;
+        say "Remote: ".$self->rfile->to_string;
+        say "Local: ".$self->lfile->to_string;
+        my $pathr = $self->path_resolve;
         $DB::single=2;
-        my $meta =  $self->get_metadata();
+        $meta =  $self->get_metadata;
         say Dumper $meta;
-        ...;
+        die "Should down load nonexisting file " if ! -f $self->lfile;
+        say "Ignore download ".$self->{pathfile};
+        return;
     } else {
         ...;
     }
