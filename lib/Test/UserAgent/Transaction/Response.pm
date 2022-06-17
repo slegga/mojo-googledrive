@@ -84,20 +84,23 @@ sub body($self) {
                     my %crit;
                     for my $x (@a) {
 #warn $x;
-                        if (my($key,$type,$value)= $x =~/^'?(.*?)'? (=|in) '?(.*?)'?$/) {
+                        if (my($key,$type,$value)= $x =~/^'?(.*?)'? (=|in|!=) '?(.*?)'?$/) {
                             if ($type eq 'in') {
                                 $type = $key;
                                 $key = $value;
                                 $value = $type;
                                 $crit{$key} = $value;
-                            } elsif($type='=') {
+                            } elsif($type eq '=') {
+                                $crit{$key."_not"} = url_unescape($value);
+                            } elsif($type eq '!=') {
                                 $crit{$key} = url_unescape($value);
                             }
                             else {
+                                say STDERR "Unhandeled $type";
                                 ...;
                             }
                         } else {
-                            say STDERR "$x";
+                            say STDERR "Unknown criteria: $x";
 
                             ...;
                         }
