@@ -20,7 +20,7 @@ ok(1,'dummy');
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),force1=>1);
 my $f= $o->file('/catalog');
 my $metadata = $f->get_metadata;
-die Dumper $metadata;
+#die Dumper $metadata;
 is_deeply ($metadata,undef,'File does not exists either locally or remote');
 #print STDERR Dumper $metadata;
 #say STDERR "\n";

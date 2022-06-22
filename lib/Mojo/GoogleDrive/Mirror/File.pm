@@ -376,7 +376,7 @@ sub file_mime_type($self) {
 
     $collectionoffiles = $file->path_resolve;
 
-Get File objects for each element in path include. First element is root and last is the actual file.
+Get remote file objects for each element in path include. First element is root and last is the actual file. If object does not exists on remote return undef.
 
 
 =cut
@@ -429,12 +429,7 @@ sub path_resolve($self,$full=0) {
         @children = $dir->list(%param)->each ;#if $param{dir_only};
 
         $old_part=$part;
-        if (! @children) {
-            push @return,undef;
-            # return Mojo::Collection->new(@return) ;
-        } else {
-#        die Dumper $children;# if ! ref $children eq 'ARRAY';
-die if !$part;
+        if ( @children) {
             for my $child (@children) {
                 say Dumper $child->metadata if ! $child->metadata->{name} && $self->debug;
                 say "Found child ", $child->metadata->{name} if $ENV{MOJO_DEBUG};
@@ -445,6 +440,10 @@ die if !$part;
                 }
             }
         }
+        push @return,undef; # object does not exists on remote.
+        # return Mojo::Collection->new(@return) ;
+#        die Dumper $children;# if ! ref $children eq 'ARRAY';
+        die if !$part;
 
     }
     #die Dumper \@return;

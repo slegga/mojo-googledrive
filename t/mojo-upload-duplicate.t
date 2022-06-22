@@ -46,7 +46,7 @@ is (path('t/remote/dir1/file.txt')->slurp,'local-file-dir1
 diag ' upload file 2';
 my $f2= $o->file('/dir2/file.txt');
 $f2->upload;
-my $metadata = $f2->get_metadata;
+$metadata = $f2->get_metadata;
 say Dumper $metadata;
 delete $metadata->{modifiedTime};
 is_deeply($f2->get_metadata,{
