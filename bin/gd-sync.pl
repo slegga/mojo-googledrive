@@ -41,10 +41,6 @@ With no command do a normal sync with remote google drive disk.
 
 =back
 
-=head2 --force1
-
-Force creation of a catalog just one time. In use after manuall check that the new catalog does not exists.
-
 =cut
 
 # simple_argv

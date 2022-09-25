@@ -57,7 +57,6 @@ Basically a producer of Mojo::GoogleDrive::Mirror::File
 
 =cut
 
-has 'force1'; # TODO: if set make one catalog. For use if manual check concludes that this catalog is needed.
 has remote_root => '/';
 has 'local_root';
 has api_file_url => "https://www.googleapis.com/drive/v3/files/";
@@ -147,98 +146,100 @@ sub sync($self) {
     my @rfiles;
     my @pathfile_deleted=();
 
-if(1) { # turn of query remote when develop local
-    @rfiles = $self->_get_remote_files(0);
+     # turn of query remote when develop local
+    {
+        @rfiles = $self->_get_remote_files(0);
 
 
-    #get root
-    my $url = Mojo::URL->new($self->api_file_url)->path('root')->query(fields => 'id,name');
+        #get root
+        my $url = Mojo::URL->new($self->api_file_url)->path('root')->query(fields => 'id,name');
 
-    say $url if $self->debug;
-    my $root = $self->http_request('get',$url,'');
+        say $url if $self->debug;
+        my $root = $self->http_request('get',$url,'');
 
-    my $opts={};
-    my %id2pathfile = ($root->{id} => '');
-    $opts->{q} = '';
-    $opts->{fields} = "nextPageToken,".join(',', map{"files/$_"} split(',','id,name,parents,kind') );
-    $opts->{q} = q_and($opts->{q}, "trashed = false" );
-    $opts->{q} = q_and($opts->{q}, "mimeType = 'application/vnd.google-apps.folder'");
-    $opts->{pageSize} = 1000;
-    $url = Mojo::URL->new($self->api_file_url)->query($opts);
-    my $remote_folders = $self->http_request('get',$url,'');
+        my $opts={};
+        my %id2pathfile = ($root->{id} => '');
+        $opts->{q} = '';
+        $opts->{fields} = "nextPageToken,".join(',', map{"files/$_"} split(',','id,name,parents,kind') );
+        $opts->{q} = q_and($opts->{q}, "trashed = false" );
+        $opts->{q} = q_and($opts->{q}, "mimeType = 'application/vnd.google-apps.folder'");
+        $opts->{pageSize} = 1000;
+        $url = Mojo::URL->new($self->api_file_url)->query($opts);
+        my $remote_folders = $self->http_request('get',$url,'');
 
-    #build all folder structures
-    my @folders = @{$remote_folders->{files}};
-    my $j =0;
-    while (@folders && $j<6) {
-        for my $i(reverse  0 .. $#folders) {
-            for my $k(keys %id2pathfile) {
-                next if ! $k;
-                next if ! $folders[$i];
-                if (! exists $folders[$i]->{parents} || ! $folders[$i]->{parents}->[0]) {
-                    next;
-                }
-                elsif ($folders[$i]->{parents}->[0] eq $k) {
-                    $id2pathfile{$folders[$i]->{id}} = $id2pathfile{$k}.'/'. $folders[$i]->{name};
-                    delete $folders[$i];
+        #build all folder structures
+        my @folders = @{$remote_folders->{files}};
+        my $j =0;
+        while (@folders && $j<6) {
+            for my $i(reverse  0 .. $#folders) {
+                for my $k(keys %id2pathfile) {
+                    next if ! $k;
+                    next if ! $folders[$i];
+                    if (! exists $folders[$i]->{parents} || ! $folders[$i]->{parents}->[0]) {
+                        next;
+                    }
+                    elsif ($folders[$i]->{parents}->[0] eq $k) {
+                        $id2pathfile{$folders[$i]->{id}} = $id2pathfile{$k}.'/'. $folders[$i]->{name};
+                        delete $folders[$i];
+                    }
                 }
             }
+            $j++;
         }
-        $j++;
-    }
 
-    # get pathfile value
-    for my $r (@rfiles) {
-        $r->{modifiedTime} = Mojo::Date->new($r->{modifiedTime});
-        if (! exists $r->{parents}->[0] || !$r->{parents}->[0]) {
-            $r = undef;# shared with me
-        } else {
-            if (! exists $id2pathfile{$r->{parents}->[0]}) {
-                if ($r->{name} =~ /FORE/) {
-                    $r->{name}='ERROR NAME';
-                }
-               if ($r->{name} =~ /[\xC3\x{FFFD}\x{C3B8}\x{C2}]/) { # used by utf8
-                    $r->{name} = decode('UTF-8', $r->{name}, Encode::FB_DEFAULT);
-                } else {
-                    $r->{name} = decode('ISO-8859-1', $r->{name});
-                }
+        # get pathfile value
+        for my $r (@rfiles) {
+            $r->{modifiedTime} = Mojo::Date->new($r->{modifiedTime});
+            if (! exists $r->{parents}->[0] || !$r->{parents}->[0]) {
                 $r = undef;# shared with me
             } else {
-                $r->{pathfile} = $id2pathfile{$r->{parents}->[0]}.'/'.$r->{name};
+                if (! exists $id2pathfile{$r->{parents}->[0]}) {
+                    if ($r->{name} =~ /FORE/) {
+                        $r->{name}='ERROR NAME';
+                    }
+                   if ($r->{name} =~ /[\xC3\x{FFFD}\x{C3B8}\x{C2}]/) { # used by utf8
+                        $r->{name} = decode('UTF-8', $r->{name}, Encode::FB_DEFAULT);
+                    } else {
+                        $r->{name} = decode('ISO-8859-1', $r->{name});
+                    }
+                    $r = undef;# shared with me
+                } else {
+                    $r->{pathfile} = $id2pathfile{$r->{parents}->[0]}.'/'.$r->{name};
+                }
             }
         }
-    }
-    @rfiles = grep{$_} @rfiles;
-    {
-        my $state = $self->state;
-        my @old_rem_pathfiles=();
-        @old_rem_pathfiles = map {decode('UTF-8', $_)} sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
-        my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
+        @rfiles = grep{$_} @rfiles;
+        {
+            my $state = $self->state;
+            my @old_rem_pathfiles=();
+            @old_rem_pathfiles = map {decode('UTF-8', $_)} sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
+            my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
 
-        #TODO: Find missing since last state. Mark for Removal of local copies.
-        for my $orpf (@old_rem_pathfiles) {
-            if (! grep {$orpf eq $_} @rem_pathfiles) {
-                next if grep {$orpf eq $_} @pathfile_deleted;
-                push @pathfile_deleted, $orpf;
+            #TODO: Find missing since last state. Mark for Removal of local copies.
+            for my $orpf (@old_rem_pathfiles) {
+                if (! grep {$orpf eq $_} @rem_pathfiles) {
+                    next if grep {$orpf eq $_} @pathfile_deleted;
+                    push @pathfile_deleted, $orpf;
+                }
             }
+
+
+            $state->{remote_pathfiles} = \@rem_pathfiles;
+            $self->state($state);
         }
-
-
-        $state->{remote_pathfiles} = \@rem_pathfiles;
-        $self->state($state);
     }
-} #if 0
+
     # newly local changes
-        my %lc;  # {pathfile, md5Checksum, modifiedTime}
+    my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-     %lc = map { my @s = stat($_);$_=>{pathfile=>decode('UTF-8',$_),is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+    %lc = map { my @s = stat($_);$_=>{pathfile=>decode('UTF-8',$_),is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
-     for my $k (keys %lc) {
+    for my $k (keys %lc) {
         if (! $lc{$k}->{is_folder}) {
             $lc{$k}{md5Checksum} = md5_hex(path($k)->slurp);
             push @lfiles, $lc{$k};
         }
-     }
+    }
     say "remotefiles: ".scalar @rfiles   if $self->debug;
     say "localfiles: ".scalar @lfiles    if $self->debug;
     say "\nExists local but not remote"  if $self->debug;;
@@ -262,7 +263,9 @@ if(1) { # turn of query remote when develop local
             say "$lpf: $hit"  if $self->debug;
         }
     }
-    if(1) {
+
+    # Populate pathfile_download
+    {
         say "\nExists remote but not local"  if $self->debug;
         for my $r(@rfiles) {
             my $hit =0;
@@ -302,9 +305,15 @@ if(1) { # turn of query remote when develop local
                 if ($rfiles_h{$k}->{modifiedTime}->epoch() >= $lfiles_h{$k}->{modifiedTime}->epoch()) {
                     push (@pathfile_download,$k);
                 }
+                elsif (! $from_epoch && $lfiles_h{$k}->{md5Checksum} && $rfiles_h{$k}->{md5Checksum}) {
+                    # init version. Only download
+                    # Downloading may time out. There fore do not download locally existing files.
+                    # Ignore
+                }
                 elsif ($rfiles_h{$k}->{modifiedTime}->epoch() >= $from_epoch) {
                     push (@pathfile_download,$k);
                 } else {
+                    die "Should never upload on init" if ! $from_epoch;
                     push (@pathfile_upload,$k);
                 }
 

@@ -574,18 +574,6 @@ sub make_path($self) {
         my $urlstring = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> $INTERESTING_FIELDS)->to_string;
         say $urlstring  if $self->debug;
 
-        # Tror dette skal virke nå. Kommenterer ut beskyttelse
-        #if($self->mgm->force1) {
-        #   $self->mgm->force1(0);
-        #} else {
-        #    say STDERR "Temporary problem with duplicates.";
-        #    say STDERR "Check if the catalog ".join('/',@pathparts) . " exists. If it do please debug";
-        #    say STDERR "If not exists run again with --force1 1 option";
-        #    delete $pathobjs[$i]->{mgm};
-        #    delete $pathobjs[$i]->{ua};
-        #    say Dumper $pathobjs[$i];
-        #    die;
-        #}
         my $meta = $self->mgm->http_request('post',$urlstring, $main_header ,
         json=>$mcontent);
         $pathobjs[$i] =$self->mgm->file_from_metadata($meta);
