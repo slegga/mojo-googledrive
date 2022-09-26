@@ -39,9 +39,11 @@ With no command do a normal sync with remote google drive disk.
 
 =item verbose - Not implemented
 
-=back
+=item force - Force sync.
 
-=head2 --force1
+=item init - Download all.
+
+=back
 
 Force creation of a catalog just one time. In use after manuall check that the new catalog does not exists.
 
