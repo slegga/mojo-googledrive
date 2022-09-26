@@ -615,7 +615,7 @@ sub download($self) {
         $DB::single=2;
         $meta =  $self->get_metadata;
         say Dumper $meta;
-#        die "Should down load nonexisting file " if ! -f $self->lfile;
+        die "Should down load nonexisting file. Figure out why not this is downloaded." if ! -f $self->lfile;
         say "Ignore download ".$self->{pathfile};
         return;
     } else {
