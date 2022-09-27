@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 
 
@@ -17,7 +18,7 @@ use Data::Dumper;
 `echo remote-file >t/remote/file.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'));
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'), oauth=>Test::oauth->new );
 my $f= $o->file('/file.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;

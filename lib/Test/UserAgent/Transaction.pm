@@ -33,7 +33,6 @@ Return response object.
 =cut
 
 sub res($self) {
-    shift @_;
     return Test::UserAgent::Transaction::Response->new(ua => $self->ua);
 }
 

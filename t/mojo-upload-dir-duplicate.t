@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 use Carp::Always;
 use Mojo::Base -strict;
@@ -22,7 +23,7 @@ mkdir('t/local/dir2/test');
 `echo local-file-dir2-test >t/local/dir2/test/file2.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1);
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1,oauth=>Test::oauth->new);
 my $f= $o->file('/test/file1.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
@@ -51,7 +52,7 @@ is_deeply(\@remote_tree,[qw"t/remote/dir2/test/file2.txt t/remote/test/file1.txt
 `echo local-file-dir2-test-2 >t/local/dir2/test/file2.txt`;
 $f2->upload;
 
-my @remote_tree = map{$_->to_string} path('t/remote')->list_tree->each;
+@remote_tree = map{$_->to_string} path('t/remote')->list_tree->each;
 is_deeply(\@remote_tree,[qw"t/remote/dir2/test/file2.txt t/remote/test/file1.txt "],'Remote tree ok');
 
 done_testing;

@@ -45,16 +45,15 @@ has 'magic';
 
 =cut
 
-sub get($self,$url,@) {
+sub get($self,$url,@args) {
     my %params=(method=>'GET', config_file=>$self->config_file, url=>$url);
     if  (ref $url) {
         $url =$url->to_string;
     }
-    shift @_;# remove self
-    shift @_;# remove url
-    if (@_) {
-        for my $i(0 .. $#_) {
-            my $v= $_[$i];
+
+    if (@args) {
+        for my $i(0 .. $#args) {
+            my $v= $args[$i];
             if (ref $v eq 'HASH') {
                 if ($v->{Authorization}) {
                     $v->{Authorization} = 'Bearer: X';
@@ -77,11 +76,11 @@ Handle update of file if file exists.
 
 =cut
 
-sub patch($self,$url,@) {
+sub patch($self,$url,@args) {
     $self->method('patch');
-    shift @_;# remove self
-    shift @_;# remove url
-    my @rest = @_;
+#    shift @_;# remove self
+#    shift @_;# remove url
+    my @rest = @args;
     my $return = $self->post($url,@rest,'method=patch');
     return Test::UserAgent::Transaction->new( ua => $self );
 }
@@ -90,17 +89,17 @@ sub patch($self,$url,@) {
 
 =cut
 
-sub post($self,$url,@) {
+sub post($self,$url,@args) {
     my %params=(method=>'post', config_file=>$self->config_file, url=>$url);
     if  (ref $url) {
         $url =$url->to_string;
     }
-    shift @_;# remove self
-    shift @_;# remove url
+#    shift @_;# remove self
+#    shift @_;# remove url
     my $param;
-    if (@_) {
-        for my $i(0 .. $#_) {
-            my $v= $_[$i];
+    if (@args) {
+        for my $i(0 .. $#args) {
+            my $v= $args[$i];
             if (ref $v eq 'HASH' && $i == 0) {
                 if ($v->{Authorization}) {
                     $v->{Authorization} = 'Bearer: X';

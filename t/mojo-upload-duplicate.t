@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 use Carp::Always;
 use Mojo::Base -strict;
@@ -19,7 +20,7 @@ mkdir('t/local/dir2');
 `echo local-file-dir2 >t/local/dir2/file.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1);
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1,oauth=>Test::oauth->new);
 my $f= $o->file('/dir1/file.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;

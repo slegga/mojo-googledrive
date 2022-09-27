@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 use utf8;
 use Encode qw/encode decode/;
@@ -17,7 +18,7 @@ use Encode qw/encode decode/;
 `echo remote-fileæøå >t/remote/fileæøå.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'));
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'), oauth=>Test::oauth->new);
 my $f= $o->file('fileæøå.txt');
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;

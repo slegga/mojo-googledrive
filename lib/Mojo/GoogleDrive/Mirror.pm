@@ -86,7 +86,7 @@ Constant set to minimum meta data for a file.
 const my $INTERESTING_FIELDS => 'id,kind,name,mimeType,parents,modifiedTime,trashed,explicitlyTrashed,md5Checksum,size';
 
 #sub path {
-#    return Mojo::File->with_roles('+Decode')->path(@_);
+#    return Mojo::File->with_roles('+Decode')->path(@names);
 #}
 
 my $new_from_epoch;
@@ -441,13 +441,13 @@ sub file_from_metadata ($self,$metadata,%opts) {
 
 =head2 http_request
 
-    $metadata = $file->http_request(method,url,payload)
+    $metadata = $file->http_request(method,url,header,payload)
 
 Do a request and return a hash converted from returned json.
 
 =cut
 
-sub http_request($self, $method,$url,$header='',@) {
+sub http_request($self, $method,$url,$header='',@payload) {
 
 
     if (! $self->oauth) {
@@ -458,8 +458,8 @@ sub http_request($self, $method,$url,$header='',@) {
     $main_header = $header if $header;
     my %tmp_header = $self->{oauth}->authorization_headers();
     $main_header->{$_} = $tmp_header{$_} for keys %tmp_header;
-    my @extra = @_;
-    splice @extra,0,4;
+    my @extra = @payload;
+
     say $method.' '.$url.'#'. join('#', map {ref $_ ? encode_json($_):'$_'} @extra) if $self->debug;
     my $tx = $self->ua->$method($url, $main_header,@extra);
     my $code = $tx->res->code;
@@ -469,7 +469,7 @@ sub http_request($self, $method,$url,$header='',@) {
     }
     if ($code eq '404') {
         warn "BODY: " . $tx->res->body;
-        my @err = @_;
+        my @err = @payload;
         shift @err;
         die Dumper \@err;
     }

@@ -6,6 +6,7 @@ use Mojo::File 'path';
 use Test::More;
 #use Test::More skip_all => 'make_path make sometimes duplicates. Must have some protection for this';
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 
 
@@ -17,7 +18,7 @@ use Data::Dumper;
 
 ok(1,'dummy');
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'));
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),oauth=>Test::oauth->new);
 my $f= $o->file('/catalog');
 my $metadata = $f->get_metadata;
 #die Dumper $metadata;
@@ -31,7 +32,7 @@ ok (-d $d->to_string,'path made');
 if(0) { # this does not work to test yet
     path($o->local_root)->child('catalog')->make_path; #make path locally
 
-    my $o1 = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'));
+    my $o1 = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),oauth=>Test::oauth->new);
     my $f1 = $o1->file('/catalog');
     $f1->make_path();
 }

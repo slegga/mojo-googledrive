@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 
 # TEST UPLOAD
@@ -18,7 +19,7 @@ path('t/remote')->make_path;
 `echo remote-file >t/remote/dir/file.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'));
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'), oauth=>Test::oauth->new);
 $o->sync;
 is (path('t/local/dir/file.txt')->slurp,'remote-file
 ','Content uploaded');

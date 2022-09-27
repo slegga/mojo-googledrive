@@ -5,6 +5,7 @@ use Data::Printer;
 use Mojo::File 'path';
 use Test::More;
 use Test::UserAgent;
+use Test::oauth;
 use Data::Dumper;
 
 # TEST UPLOAD
@@ -16,7 +17,7 @@ use Data::Dumper;
 `echo remote-file >t/remote/unknown/file.txt`;
 
 {
-    my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'));
+    my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'),oauth=>Test::oauth->new);
     my $f= $o->file('unknown/file.txt');
     $f->download;
     is (path('t/local/unknown/file.txt')->slurp,'remote-file
@@ -27,7 +28,7 @@ use Data::Dumper;
 {
     `mkdir t/remote/unknown/xknownx`;
     `echo remote-file >t/remote/unknown/xknownx/filex.txt`;
-    my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'));
+    my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/', local_root => 't/local'),oauth=>Test::oauth->new);
     my $f= $o->file('unknown/xknownx/filex.txt');
     $f->download;
     ok(-f path('t/local/unknown/xknownx/filex.txt')->to_string,'Right file created');
