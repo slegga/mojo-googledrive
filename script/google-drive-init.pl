@@ -7,11 +7,21 @@
 # Modified by slegga
 ###########################################
 
+=head1 NAME
+
+google-drive-init.pl
+
+=encoding UTF-8
+
 =head1 SYNOPSIS
 
 On MAC
 
 mojo-googledrive git:(main) ✗ PERL_LWP_SSL_CA_FILE=/opt/homebrew/share/ca-certificates/cacert.pem script/google-drive-init.pl
+
+=head1 DESCRIPTION
+
+Generate token from google. Needs client_id and client_secrect can reuse a copy of ~/.google-drive.yml
 
 =cut
 
