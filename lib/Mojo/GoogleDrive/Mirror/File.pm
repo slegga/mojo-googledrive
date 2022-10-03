@@ -144,6 +144,11 @@ sub get_metadata($self,$full = 0) {
     my $debug='';
     $metadata = $self->metadata if ( ref $self->metadata eq 'HASH' && keys %{ $self->metadata } );
     if (! $self->pathfile) {
+        if (keys %$metadata && ! exists $metadata->{parents} && $metadata->{mimeType} eq 'application/vnd.google-apps.folder') {
+            #probably root
+            return $metadata;
+        }
+                        # TODO: add "and (id = $metas->[0]->{id} or id = $metas->[1]->{id} ....)";})
         die "Missing pathfile";
     }
     if(  (! ref $metadata || ! keys %$metadata || ! $metadata->{kind})) {
@@ -479,8 +484,12 @@ sub list($self, %options) {
     my $folder_id;
     my @return;
     my $meta;
-    $meta = $self->get_metadata if $self->pathfile;
+
+    $meta = $self->get_metadata;# if $self->pathfile;
     if (! keys %$meta) {
+        p $self->metadata;
+        p $meta;
+        die "Missing meta";
         $meta = $self->metadata;
     }
     if (! defined $meta->{'mimeType'}) {
