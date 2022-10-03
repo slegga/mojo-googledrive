@@ -22,6 +22,20 @@ mkdir('t/local/dir2');
 
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1,oauth=>Test::oauth->new);
 my $f= $o->file('/dir1/file.txt');
+
+
+my $meta = $f->metadata;
+$meta->{'mimeType'} = 'file';
+$f->metadata($meta);
+
+my $df = $o->file('/dir1');
+my $dmeta= $df->metadata;
+$dmeta->{'id'} = '/dir1' if ! exists $dmeta->{'id'};
+$dmeta->{'mimeType'} = 'application/vnd.google-apps.folder';
+my $meta_all = $o->metadata_all;
+$meta_all->{'/dir1'} = $dmeta;
+$df->metadata($meta_all);
+
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
 say STDERR "\n";
@@ -46,18 +60,33 @@ is (path('t/remote/dir1/file.txt')->slurp,'local-file-dir1
 
 diag ' upload file 2';
 my $f2= $o->file('/dir2/file.txt');
+
+$meta = $f2->metadata;
+$meta->{'mimeType'} = 'file';
+$f2->metadata($meta);
+
+$df = $o->file('/dir2');
+my $dmeta= $df->metadata;
+$dmeta->{'id'} = '/dir2' if ! exists $dmeta->{'id'};
+$dmeta->{'mimeType'} = 'application/vnd.google-apps.folder';
+my $meta_all = $o->metadata_all;
+$meta_all->{'/dir2'} = $dmeta;
+$df->metadata($meta_all);
+
+
+
 $f2->upload;
 $metadata = $f2->get_metadata;
 say Dumper $metadata;
 delete $metadata->{modifiedTime};
 is_deeply($f2->get_metadata,{
-          'id' => 'dir2/file.txt',
+          'id' => '/dir2/file.txt',
           'name' => 'file.txt',
           'explicitlyTrashed' => bless( do{\(my $o = 0)}, 'JSON::PP::Boolean' ),
           'trashed' => bless( do{\(my $o = 0)}, 'JSON::PP::Boolean' ),
           'md5Checksum' => 'HvGIssvIdVHYXYFrMvqIow',
           'kind' => 'drive#file',
-          'parents' => ['dir2'],
+          'parents' => ['/dir2'],
           'mimeType' => 'text/plain',
 },'Metadata ok');
 
