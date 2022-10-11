@@ -7,6 +7,7 @@ use Test::More;
 use Test::UserAgent;
 use Test::oauth;
 use Data::Dumper;
+use Data::Printer;
 use Carp::Always;
 use Mojo::Base -strict;
 
@@ -23,8 +24,26 @@ mkdir('t/local/dir2/test');
 `echo local-file-dir2-test >t/local/dir2/test/file2.txt`;
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1,oauth=>Test::oauth->new);
+my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'),debug=>1,oauth=>Test::oauth->new,mimeType =>'file' );
+
+#populate meta for dir
+my ($df,$dmeta,$meta_all);
+
+for my $dirn (qw "/test /dir2 /dir2/test") {
+    $df = $o->file($dirn);
+    $dmeta= $df->metadata;
+    $dmeta->{'id'} = $dirn if ! exists $dmeta->{'id'};
+    $dmeta->{'mimeType'} = 'application/vnd.google-apps.folder';
+    $meta_all = $o->metadata_all;
+    $meta_all->{$dirn} = $dmeta;
+    $o->metadata_all($meta_all);
+}
+
+# end populate meta for dir
+
 my $f= $o->file('/test/file1.txt');
+
+p $f;
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
 say STDERR "\n";

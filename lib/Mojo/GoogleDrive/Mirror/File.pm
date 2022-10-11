@@ -144,6 +144,11 @@ sub get_metadata($self,$full = 0) {
     my $debug='';
     $metadata = $self->metadata if ( ref $self->metadata eq 'HASH' && keys %{ $self->metadata } );
     if (! $self->pathfile) {
+        if (keys %$metadata && ! exists $metadata->{parents} && $metadata->{mimeType} eq 'application/vnd.google-apps.folder') {
+            #probably root
+            return $metadata;
+        }
+                        # TODO: add "and (id = $metas->[0]->{id} or id = $metas->[1]->{id} ....)";})
         die "Missing pathfile";
     }
     if(  (! ref $metadata || ! keys %$metadata || ! $metadata->{kind})) {
@@ -205,7 +210,7 @@ sub get_metadata($self,$full = 0) {
             my $parent_basename = $path[-1];
             my $pmetas;
             my $purl;
-
+say STDERR "MULTIPLE PARENTS";
             if ($parent_basename) {
                 $purl = Mojo::URL->new($self->mgm->api_file_url)->query(fields=> "files($fields)",q=> "name = '$parent_basename' and trashed = false  and mimeType = 'application/vnd.google-apps.folder'");
                 # TODO: add "and (id = $metas->[0]->{id} or id = $metas->[1]->{id} ....)";
@@ -417,8 +422,12 @@ sub path_resolve($self,$full=0) {
             $dir = $self->mgm->file_from_metadata($self->mgm->metadata_all->{$tmppath->to_plaintext});
         }
 
-        if (! $dir) {
-            $dir = $self->{mgm}->file_from_metadata({id => $parent_id, name => $old_part},pathfile => $tmppath->to_string);
+        if (! keys %$dir) {
+            $dir = $self->mgm->file_from_metadata({id => $parent_id, name => $old_part},pathfile => $tmppath->to_string);
+        }
+        if (! keys %$dir) {
+            say STDERR Dumper
+            die "Not found $tmppath {id => $parent_id, name => $old_part}";
         }
         $tmppath = $tmppath->child($part);
         my %param=(name=>$part);
@@ -457,7 +466,7 @@ sub path_resolve($self,$full=0) {
         } else {
             $pathfile=undef;
         }
-        push  @return2, $self->{mgm}->file_from_metadata( $r, pathfile=>$pathfile );
+        push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>$pathfile );
         $pathfile .= '/';
     }
     return Mojo::Collection->new(@return2);
@@ -467,7 +476,7 @@ sub path_resolve($self,$full=0) {
 
     print $_->metadata->{name} for $file->list;
 
-Return Mojo::Collection of files if object is a directory. Else return empty.
+Return Mojo::Collection of child files if object is a directory. Else return empty.
 
 =cut
 
@@ -475,7 +484,26 @@ sub list($self, %options) {
     my $folder_id;
     my @return;
     my $meta;
-    $meta = $self->get_metadata if $self->pathfile;
+
+    $meta = $self->get_metadata;# if $self->pathfile;
+    if (! keys %$meta) {
+        p $self->metadata;
+        p $meta;
+        die "Missing meta";
+        $meta = $self->metadata;
+    }
+    if (! defined $meta->{'mimeType'}) {
+        say "---";
+        p $self;
+        p $meta;
+        p %options;
+        die "No meta";
+    }
+    if ( $meta->{'mimeType'} ne 'application/vnd.google-apps.folder') {
+        say "---";
+        say Dumper $meta;
+        die "ERROR: Object is not A folder.";
+    }
     $folder_id = $meta->{id} if exists $meta->{id};
     if ($self->pathfile && ! $folder_id && $self->rfile->to_string) {
         if (exists $self->mgm->metadata_all->{$self->rfile->to_plaintext}) {
@@ -501,9 +529,12 @@ sub list($self, %options) {
     }
     if ($folder_id) {
         $opts->{q} = q_and($opts->{q},"'$folder_id' in parents");
-    } elsif ($self->debug) {
+    } elsif ( $self->debug) {
         my $m  = $self->metadata;
-        warn Dumper $m;
+        if ($m->{'mimeType'} ne 'application/vnd.google-apps.folder') { # maybe root?
+            warn Dumper $m;
+            die "MISSING PARENT ID";
+        }
     }
     if ($options{name}) {
         $opts->{q} = q_and($opts->{q},"name = '$options{name}'");

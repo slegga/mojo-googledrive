@@ -168,6 +168,10 @@ die "Missing local_root" if ! $self->ua->local_root;
             if (! $hash->{id}) {
                 $hash->{id} = $hash->{parents}->[0] .'/'. $hash->{name};
             }
+
+            #make missing path
+            path($self->ua->real_remote_root)->child($hash->{parents}->[0])->make_path();
+
             path($self->ua->real_remote_root)->child($hash->{id})->spurt($self->ua->payload->{content});
             my $metadata = $self->ua->metadata;
 
