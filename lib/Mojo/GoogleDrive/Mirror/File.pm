@@ -7,6 +7,7 @@ use Mojo::URL;
 use File::MMagic;
 use Mojo::JSON qw /true false to_json from_json/;
 use Data::Dumper;
+use Data::Printer;
 use Mojo::Collection;
 use Mojo::GoogleDrive::Mirror;
 use open qw(:std :utf8);
@@ -607,14 +608,16 @@ sub download($self) {
         }
     } elsif ( $self->pathfile ) {
 #        say Dumper $self;
-
-        say "Pathfile".$self->pathfile;
-        say "Remote: ".$self->rfile->to_string;
-        say "Local: ".$self->lfile->to_string;
+say STDERR '---';
+        say STDERR "Pathfile".$self->pathfile;
+        say STDERR "Remote: ".$self->rfile->to_string;
+        say STDERR "Local: ".$self->lfile->to_string;
         my $pathr = $self->path_resolve;
         $DB::single=2;
         $meta =  $self->get_metadata;
-        say Dumper $meta;
+        say STDERR Dumper $meta;
+        p $self;
+        p $pathr;
         die "Should down load nonexisting file. Figure out why not this is downloaded." if ! -f $self->lfile;
         say "Ignore download ".$self->{pathfile};
         return;
