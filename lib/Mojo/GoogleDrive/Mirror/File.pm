@@ -436,17 +436,25 @@ sub path_resolve($self,$full=0) {
             $param{dir_only}=1;
         }
         my @children;
-        @children = $dir->list(%param)->each ;#if $param{dir_only};
+        my $list_obj = $dir->list(%param);
 
-        $old_part=$part;
-        if ( @children) {
-            for my $child (@children) {
-                say Dumper $child->metadata if ! $child->metadata->{name} && $self->debug;
-                say "Found child ", $child->metadata->{name} if $ENV{MOJO_DEBUG};
-                if ( $child->metadata->{name} eq $part ) {
-                    $parent_id = $child->metadata->{id};
-                    push @return,$child->metadata;
-                    next PART;
+        # check for errors
+        if (!ref $list_obj) {
+            warn "WRN: $list_obj";
+        } else {
+
+            @children = $list_obj->each ;#if $param{dir_only};
+
+            $old_part=$part;
+            if ( @children) {
+                for my $child (@children) {
+                    say Dumper $child->metadata if ! $child->metadata->{name} && $self->debug;
+                    say "Found child ", $child->metadata->{name} if $ENV{MOJO_DEBUG};
+                    if ( $child->metadata->{name} eq $part ) {
+                        $parent_id = $child->metadata->{id};
+                        push @return,$child->metadata;
+                        next PART;
+                    }
                 }
             }
         }
@@ -489,8 +497,9 @@ sub list($self, %options) {
     if (! keys %$meta) {
         p $self->metadata;
         p $meta;
-        die "Missing meta";
-        $meta = $self->metadata;
+        warn "Missing meta";
+        return "Missing meta";
+#        $meta = $self->metadata;
     }
     if (! defined $meta->{'mimeType'}) {
         say "---";
