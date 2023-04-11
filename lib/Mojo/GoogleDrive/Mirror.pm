@@ -465,6 +465,8 @@ sub http_request($self, $method,$url,$header='',@payload) {
     my $code = $tx->res->code;
     if (!$code) {
         say STDERR $url;
+        my $x = $tx->res;
+        say STDERR encode_json( $x );
         die "Timeout";
     }
     if ($code eq '404') {
