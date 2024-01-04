@@ -2,5 +2,6 @@
 *.ptkdb
 *.swp
 *.tmp
+*.bak
 t/local/*
 t/remote/*

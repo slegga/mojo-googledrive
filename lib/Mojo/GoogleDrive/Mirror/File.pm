@@ -643,7 +643,7 @@ sub download($self) {
         my $content = $self->mgm->http_request('get',$urlstring);  #      GET https://www.googleapis.com/drive/v3/files/fileId
         if ( $content ) {
             $self->lfile->dirname->make_path;
-            $self->lfile->spurt( $content );
+            $self->lfile->spew( $content,'UTF-8' );
             return $self;
         }
     } elsif ( $self->pathfile ) {
@@ -653,7 +653,7 @@ say STDERR '---';
         say STDERR "Remote: ".$self->rfile->to_string;
         say STDERR "Local: ".$self->lfile->to_string;
         my $pathr = $self->path_resolve;
-        $DB::single=2;
+        $DB::single = 2;
         $meta =  $self->get_metadata;
         say STDERR Dumper $meta;
         p $self;
