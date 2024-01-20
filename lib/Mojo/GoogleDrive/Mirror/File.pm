@@ -643,7 +643,7 @@ sub download($self) {
         my $content = $self->mgm->http_request('get',$urlstring);  #      GET https://www.googleapis.com/drive/v3/files/fileId
         if ( $content ) {
             $self->lfile->dirname->make_path;
-            $self->lfile->spew( $content,'UTF-8' );
+            $self->lfile->spew( $content ); # No UTF8 it is binary data.
             return $self;
         }
     } elsif ( $self->pathfile ) {
