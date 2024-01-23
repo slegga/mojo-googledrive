@@ -65,7 +65,13 @@ has oauth          => sub { OAuth::Cmdline::GoogleDrive->new() };
 has sync_direction => 'both'; # both ways clound wins if in conflict
 has sync_conflict_master =>'cloud';
 has ua =>sub {Mojo::UserAgent->new};
-has state_file => sub {path($ENV{HOME})->child('etc')->make_path->child('googledrive.yml')->touch};
+has state_file => sub {
+    my $dir = path($ENV{HOME})->child('etc');
+    if (! -e "$dir" && -l "$dir" ) {
+        die "$dir is a broken symlink.";
+    }
+    $dir->make_path->child('googledrive.yml')->touch
+};
 has 'debug';
 has state => sub {
     my $self =shift;
