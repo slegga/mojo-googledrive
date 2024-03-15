@@ -149,6 +149,7 @@ sub get_metadata($self,$full = 0) {
             return $metadata;
         }
                         # TODO: add "and (id = $metas->[0]->{id} or id = $metas->[1]->{id} ....)";})
+        p $metadata;
         die "Missing pathfile";
     }
     if(  (! ref $metadata || ! keys %$metadata || ! $metadata->{kind})) {
@@ -164,8 +165,8 @@ sub get_metadata($self,$full = 0) {
         # populate name from local_file
         # try to lookup remote parents
         # fill kind,mimeType,parents,trashed,modifiedTime,explicitlyTrashed
-        $metadata={
-            kind=>'drive#file',
+        $metadata = {
+            kind => 'drive#file',
 #            trashed=>false,
 #            explicitlyTrashed=>false,
         };
