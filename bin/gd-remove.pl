@@ -6,6 +6,7 @@ use Mojo::File qw/path curfile/;
 use OAuth::Cmdline::GoogleDrive;
 use Data::Dumper;
 my $curlib;
+use utf8;
 BEGIN {
     $curlib = curfile->dirname->dirname->child('lib')->to_string;
 };

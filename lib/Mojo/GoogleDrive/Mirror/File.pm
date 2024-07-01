@@ -14,7 +14,7 @@ use open qw(:std :utf8);
 use utf8;
 use Digest::MD5 'md5_hex';
 use Const::Fast;
-use Encode 'encode';
+use Encode 'encode','decode';
 use Carp qw/carp confess/;
 use Hash::Merge; #export merge
 
@@ -53,7 +53,7 @@ Responsible to implement common logic for each file.
 
 has 'pathfile';
 has 'remote_root' => '/';
-has 'local_root';# => "$ENV{HOME}/googledrive/";
+has 'local_root' => "$ENV{HOME}/googledrive/";
 has 'last_message';
 #has 'api_file_url' => "https://www.googleapis.com/drive/v3/files/";
 #has 'api_upload_url' => "https://www.googleapis.com/upload/drive/v3/files/";
@@ -388,7 +388,7 @@ Get remote file objects for each element in path include. First element is root 
 
 =cut
 
-sub path_resolve($self,$full=0) {
+sub path_resolve($self,$full = 0) {
     my @parts = grep { $_ ne '' } @{ $self->rfile->to_array };
 
     my @return;
@@ -405,15 +405,15 @@ sub path_resolve($self,$full=0) {
         my $url = Mojo::URL->new($self->mgm->api_file_url)->path($parent_id)->query(fields=> $fields );
         say $url  if $self->debug;
         $root_meta = $self->mgm->http_request('get',$url,'');
-        my $ma=$self->mgm->metadata_all;
+        my $ma = $self->mgm->metadata_all;
         $ma->{'/'} = $root_meta;
         $self->mgm->metadata_all($ma);
     }
     die "Can not find root" if !$root_meta;
     push @return, $root_meta;
     $parent_id = $root_meta->{id};
-    my $tmppath=path('/');
-    my $old_part='/';
+    my $tmppath = path('/');
+    my $old_part = '/';
     my $i = -1;
   PART: for my $part (@parts) {
         $i++;
@@ -424,14 +424,14 @@ sub path_resolve($self,$full=0) {
         }
 
         if (! keys %$dir) {
-            $dir = $self->mgm->file_from_metadata({id => $parent_id, name => $old_part},pathfile => $tmppath->to_string);
+            $dir = $self->mgm->file_from_metadata({id => $parent_id, name => $old_part},pathfile => $tmppath->to_string );
         }
         if (! keys %$dir) {
             say STDERR Dumper
             die "Not found $tmppath {id => $parent_id, name => $old_part}";
         }
         $tmppath = $tmppath->child($part);
-        my %param=(name=>$part);
+        my %param = (name=>$part);
         $param{full}=$full;
         if ($i<$#parts) {
             $param{dir_only}=1;
@@ -446,7 +446,7 @@ sub path_resolve($self,$full=0) {
 
             @children = $list_obj->each ;#if $param{dir_only};
 
-            $old_part=$part;
+            $old_part = $part;
             if ( @children) {
                 for my $child (@children) {
                     say Dumper $child->metadata if ! $child->metadata->{name} && $self->debug;
@@ -473,9 +473,9 @@ sub path_resolve($self,$full=0) {
         if ( exists $r->{name}) {
             $pathfile .= $r->{name};
         } else {
-            $pathfile=undef;
+            $pathfile = undef;
         }
-        push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>$pathfile );
+        push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>decode('UTF-8', $pathfile ));
         $pathfile .= '/';
     }
     return Mojo::Collection->new(@return2);
@@ -532,7 +532,7 @@ sub list($self, %options) {
         $folder_id = $self->make_path->get_metadata->{id};
         die "No folder_id. Please, part the line above and figure out whats wrong" if ! $folder_id;
     }
-    my    $opts= \%options;
+    my    $opts = \%options;
     $opts->{q} = '' ;
     if ($options{dir_only}) {
         $opts->{q} = q_and($opts->{q},"mimeType = 'application/vnd.google-apps.folder'");
@@ -688,7 +688,9 @@ sub remove($self) {
     if (! $meta->{id}) {
         my $remote_file = $self->path_resolve->last;
         if (! $remote_file->pathfile) {
-            $message .= ($message?"\n":'')."Remote file not found2 ". $self->rfile->to_string;
+            p $self;
+            p $meta;
+            $message .= ($message?"\n":'')."Remote file not found2 ". decode('UTF-8', $self->rfile->to_string);
             return $self->last_message($message);
         }
         $meta = $remote_file->get_metadata;
@@ -716,7 +718,7 @@ sub remove($self) {
 =cut
 
 sub q_and($old,$add) {
-    my $return=$old;
+    my $return = $old;
     $return .=' and ' if $return;
     $return .= $add;
     return $return;

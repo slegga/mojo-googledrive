@@ -120,7 +120,7 @@ sub file($self,$pathfile) {
         $opts->{metadata} = {id=>'root'};
     }
     $opts->{$_}=$common{$_} for keys %common;
-    return Mojo::GoogleDrive::Mirror::File->new(pathfile => $pathfile,%$opts);
+    return Mojo::GoogleDrive::Mirror::File->new(pathfile => decode('UTF-8', $pathfile), %$opts);
 
 }
 
@@ -150,7 +150,7 @@ sub sync($self) {
     # newly changed remote
     my $from_epoch = $self->_read_from_epoch();
     my @rfiles;
-    my @pathfile_deleted=();
+    my @pathfile_deleted = ();
 
      # turn of query remote when develop local
     {
@@ -163,7 +163,7 @@ sub sync($self) {
         say $url if $self->debug;
         my $root = $self->http_request('get',$url,'');
 
-        my $opts={};
+        my $opts = {};
         my %id2pathfile = ($root->{id} => '');
         $opts->{q} = '';
         $opts->{fields} = "nextPageToken,".join(',', map{"files/$_"} split(',','id,name,parents,kind') );
@@ -217,7 +217,7 @@ sub sync($self) {
         @rfiles = grep{$_} @rfiles;
         {
             my $state = $self->state;
-            my @old_rem_pathfiles=();
+            my @old_rem_pathfiles = ();
             @old_rem_pathfiles = map {decode('UTF-8', $_)} sort @{$state->{remote_pathfiles}} if exists $state->{remote_pathfiles};
             my @rem_pathfiles = sort map{$_->{pathfile}} @rfiles;
 
@@ -238,7 +238,7 @@ sub sync($self) {
     # newly local changes
     my %lc;  # {pathfile, md5Checksum, modifiedTime}
 
-    %lc = map { my @s = stat($_);$_=>{pathfile=>decode('UTF-8',$_),is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
+    %lc = map { my @s = stat($_);$_ => {pathfile=>decode('UTF-8',$_),is_folder =>(-d $_), size => $s[7], modifiedTime => Mojo::Date->new->epoch($s[9]) }} grep{defined $_} path( $self->local_root )->list_tree({dont_use_nlink=>1})->each;
     my @lfiles;
     for my $k (keys %lc) {
         if (! $lc{$k}->{is_folder}) {
@@ -249,8 +249,8 @@ sub sync($self) {
     say "remotefiles: ".scalar @rfiles   if $self->debug;
     say "localfiles: ".scalar @lfiles    if $self->debug;
     say "\nExists local but not remote"  if $self->debug;;
-    my @pathfile_download=();
-    my @pathfile_upload=();
+    my @pathfile_download = ();
+    my @pathfile_upload = ();
     my @allfiles = @rfiles;
     for my $l(@lfiles) {
         my $hit =0;
@@ -377,7 +377,7 @@ sub clean_remote_duplicates($self) {
             }
             return if $min eq 'ZZ';
             # delete all newer versions
-            my $deleted_count=0;
+            my $deleted_count = 0;
             for my $dup(@{$files_h{$k}}) {
                 if ($min ne $dup->{modifiedTime}) {
                     my $res = $self->http_request('delete',$self->api_file_url . $dup->{id});
@@ -425,7 +425,7 @@ sub get_common_hash($self) {
 
 =head2 file_from_metadata
 
-    my $file = $gd->file_from_metadata({name=>'test.txt',kind=>'drive#file', mimeType =>'application/octet-stream'},pathfile => $pathfile);
+    my $file = $gd->file_from_metadata({name=>'test.txt',kind=>'drive#file', mimeType =>'application/octet-stream'},pathfile => decode('UTF-8', $pathfile));
 
 Creates a new fileobject based on metadata.
 
@@ -434,7 +434,7 @@ Creates a new fileobject based on metadata.
 sub file_from_metadata ($self,$metadata,%opts) {
     my %common = $self->get_common_hash;
     my %options;
-    %options= %opts;
+    %options = %opts;
     $options{$_} = $common{$_} for keys %common;
     if (! $options{oauth}) {
         warn Dumper $self;
@@ -570,7 +570,7 @@ sub _end_tasks($self) {
 =cut
 
 sub q_and($old,$add) {
-    my $return=$old;
+    my $return = $old;
     $return .=' and ' if $return;
     $return .= $add;
     return $return;

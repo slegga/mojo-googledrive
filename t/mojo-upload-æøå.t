@@ -19,7 +19,7 @@ use Encode qw/encode decode/;
 
 
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"t/local/", remote_root=>'/', ua=>Test::UserAgent->new(real_remote_root=>'t/remote/'), oauth=>Test::oauth->new);
-my $f= $o->file('fileæøå.txt');
+my $f = $o->file(encode('UTF-8','fileæøå.txt'));
 my $metadata = $f->get_metadata;
 print STDERR Dumper $metadata;
 say STDERR "\n";
