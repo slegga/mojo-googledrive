@@ -107,6 +107,8 @@ my $new_from_epoch;
 
 Return a new file object.
 
+filename must be decoded UTF-8/ internal perl string
+
 =cut
 
 sub file($self,$pathfile) {
@@ -120,7 +122,7 @@ sub file($self,$pathfile) {
         $opts->{metadata} = {id=>'root'};
     }
     $opts->{$_}=$common{$_} for keys %common;
-    return Mojo::GoogleDrive::Mirror::File->new(pathfile => decode('UTF-8', $pathfile), %$opts);
+    return Mojo::GoogleDrive::Mirror::File->new(pathfile => $pathfile, %$opts);
 
 }
 
