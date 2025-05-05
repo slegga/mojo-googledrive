@@ -54,6 +54,7 @@ Responsible to implement common logic for each file.
 has 'pathfile';
 has 'remote_root' => '/';
 has 'local_root' => "$ENV{HOME}/googledrive/";
+has 'backup_root' => "$ENV{HOME}/.googledrive/conflict-remove/";
 has 'last_message';
 #has 'api_file_url' => "https://www.googleapis.com/drive/v3/files/";
 #has 'api_upload_url' => "https://www.googleapis.com/upload/drive/v3/files/";
@@ -107,6 +108,20 @@ sub rfile($self) {
         return path($self->remote_root)->child($pfs);
     }
 }
+
+=head2 backup_file
+
+    $full_backup_path = $file->backup_file;
+
+Full path to corresponding backup path
+
+=cut
+
+sub backup_file($self) {
+    die "Missing backup_root" if ! $self->backup_root;
+    return path($self->backup_root)->child($self->pathfile);
+}
+
 
 =head2 need_sync
 
@@ -644,6 +659,12 @@ sub download($self) {
         my $content = $self->mgm->http_request('get',$urlstring);  #      GET https://www.googleapis.com/drive/v3/files/fileId
         if ( $content ) {
             $self->lfile->dirname->make_path;
+            if ( -f $self->lfile ) {
+                # Take backup of old file in case
+                # It is so often this goes wrong.
+                $self->backup_file->dirname->make_path();
+                $self->lfile->copy_to($self->backup_file());
+            }
             $self->lfile->spew( $content ); # No UTF8 it is binary data.
             return $self;
         }
