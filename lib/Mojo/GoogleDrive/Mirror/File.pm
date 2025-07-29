@@ -584,7 +584,8 @@ sub list($self, %options) {
 
     my @objects =  map {$self->{mgm}->file_from_metadata($_)} @{ $data->{files} };
     if ($data->{nextPageToken}) {
-        die Dumper $data;
+        warn Dumper $data;
+        die;
     }
     return Mojo::Collection->new(@objects);
 }

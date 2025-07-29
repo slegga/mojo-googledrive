@@ -257,7 +257,10 @@ sub sync($self) {
     for my $l(@lfiles) {
         my $hit =0;
         my $lpf = substr($l->{pathfile},length($self->local_root));
-        die Dumper $l if ! defined $lpf;
+        if (! defined $lpf) {
+            warn Dumper $l;
+            die;
+        }
         next if grep {$lpf eq $_} @pathfile_deleted;
         for my $r(@rfiles) {
             next if ! ref $r || ! exists $r->{pathfile};
@@ -385,7 +388,8 @@ sub clean_remote_duplicates($self) {
                     my $res = $self->http_request('delete',$self->api_file_url . $dup->{id});
                     if ($res) {
                         say STDERR $k;
-                        die Dumper $res ;
+                        warn Dumper $res ;
+                        die;
                     }
 
                 }
@@ -477,13 +481,23 @@ sub http_request($self, $method,$url,$header='',@payload) {
         say STDERR encode_json( $x );
         die "Timeout";
     }
-    if ($code eq '404') {
+    elsif ($code eq '404') {
         warn "BODY: " . $tx->res->body;
         my @err = @payload;
         shift @err;
-        die Dumper \@err;
+        warn Dumper \@err;
+        die;
     }
-    die Dumper $tx->res if $code > 299;
+    elsif ($method eq "get" && $code == 403 && decode_json($tx->res->body)->{error}->{message} eq 'Only files with binary content can be downloaded. Use Export with Docs Editors files.') {
+        return undef;
+    }
+    elsif ($code > 299) {
+        warn $method." ".$url. " payload: ".join (',',@payload) ;
+        warn Dumper $tx->res ;
+        warn  decode_json($tx->res->body)->{error}->{message};
+
+        die;
+    }
     my $return;
     my $body;
     $body = $tx->res->body;
