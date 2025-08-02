@@ -12,7 +12,7 @@ BEGIN {
 };
 use lib $curlib;
 use Mojo::GoogleDrive::Mirror;
-
+use Encode 'decode';
 
 # REMOVE FILE FROM REMOTE
 
@@ -21,5 +21,5 @@ die "Must have have a file as an argument" if ! $ARGV[0];
 
 
 my $o = Mojo::GoogleDrive::Mirror->new(remote_root=>'/');
-my $metadata = $o->file($ARGV[0])->remove;
+my $metadata = $o->file(decode('UTF-8',$ARGV[0]))->remove;
 print $metadata->last_message ."\n";

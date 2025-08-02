@@ -51,7 +51,7 @@ Responsible to implement common logic for each file.
 =cut
 
 
-has 'pathfile';
+has 'pathfile'; # perl internal charset
 has 'remote_root' => '/';
 has 'local_root' => "$ENV{HOME}/googledrive/";
 has 'backup_root' => "$ENV{HOME}/.googledrive/conflict-remove/";
@@ -307,9 +307,9 @@ sub upload {
             use bytes;
             $byte_size = length($local_file_content);
     }
-$DB::single=2;
+$DB::single = 2;
     my $metadata = $self->get_metadata;
-    my $mcontent={name=>encode('UTF-8',$metadata->{name})};
+    my $mcontent = {name=>encode('UTF-8',$metadata->{name})};
 
     my $http_method = 'post';
     if (exists $metadata->{id} && $metadata->{id}) {
@@ -475,8 +475,6 @@ sub path_resolve($self,$full = 0) {
             }
         }
         push @return,undef; # object does not exists on remote.
-        # return Mojo::Collection->new(@return) ;
-#        die Dumper $children;# if ! ref $children eq 'ARRAY';
         die if !$part;
 
     }
@@ -486,11 +484,11 @@ sub path_resolve($self,$full = 0) {
     for my $r (@return) {
 #        next if ! keys %$r;
         if ( exists $r->{name}) {
-            $pathfile .= $r->{name};
+            $pathfile .= decode('UTF-8',$r->{name});
         } else {
             $pathfile = undef;
         }
-        push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>decode('UTF-8', $pathfile ));
+        push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>$pathfile );
         $pathfile .= '/';
     }
     return Mojo::Collection->new(@return2);
