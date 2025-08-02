@@ -701,9 +701,13 @@ sub remove($self) {
     my $message='';
     die "Missing patfile" if !$self->pathfile;
     $self->last_message('');
-    if ( -f $self->lfile->to_string ) {
-        $self->lfile->remove;
-        $message .= 'Removed local file: '.$self->lfile->to_string;
+    my $removingfile = $self->lfile->to_abs->to_string;
+    if ( -f $removingfile ) {
+        my $removedfile = $self->lfile->to_abs->remove;
+        $message .= 'Removed local file: '.$removedfile->to_abs;;
+    }
+    else {
+        warn "the file ".$self->lfile->to_string." does not exists. And is not removed.";
     }
     my $meta = $self->get_metadata;
 

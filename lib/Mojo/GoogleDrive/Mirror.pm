@@ -58,7 +58,7 @@ Basically a producer of Mojo::GoogleDrive::Mirror::File
 =cut
 
 has remote_root => '/';
-has 'local_root';
+has local_root => "$ENV{HOME}/googledrive";
 has api_file_url => "https://www.googleapis.com/drive/v3/files/";
 has api_upload_url => "https://www.googleapis.com/upload/drive/v3/files/";
 has oauth          => sub { OAuth::Cmdline::GoogleDrive->new() };

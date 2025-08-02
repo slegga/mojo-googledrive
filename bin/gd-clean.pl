@@ -15,7 +15,7 @@ use Mojo::GoogleDrive::Mirror;
 # REMOVE EMPTY FOLDERS
 
 my $gd_root = curfile->dirname->dirname->dirname->dirname->child('googledrive');
-my %dirswithfiles=();
+my %dirswithfiles = ();
 my $level = @{ $gd_root->to_array };
 for my $dir (sort {length("$b") <=> length("$a")} $gd_root->list_tree({dir=>1})->each) {
     if (-f "$dir") {
@@ -37,5 +37,5 @@ for my $dir (sort {length("$b") <=> length("$a")} $gd_root->list_tree({dir=>1})-
 
 # CLEAN FILES
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"../../googledrive/", remote_root=>'/');
+my $o = Mojo::GoogleDrive::Mirror->new(remote_root=>'/');
 $o->clean_remote_duplicates;

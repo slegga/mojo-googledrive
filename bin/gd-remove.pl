@@ -20,6 +20,6 @@ die "Must have have a file as an argument" if ! $ARGV[0];
 die "Must have have a file as an argument" if ! $ARGV[0];
 
 
-my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"../../googledrive/", remote_root=>'/');
+my $o = Mojo::GoogleDrive::Mirror->new(remote_root=>'/');
 my $metadata = $o->file($ARGV[0])->remove;
 print $metadata->last_message ."\n";
