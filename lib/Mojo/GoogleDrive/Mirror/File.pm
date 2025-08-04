@@ -482,12 +482,19 @@ sub path_resolve($self,$full = 0) {
     my @return2;
     my $pathfile='';
     for my $r (@return) {
-#        next if ! keys %$r;
-        if ( exists $r->{name}) {
-            $pathfile .= decode('UTF-8',$r->{name});
-        } else {
-            $pathfile = undef;
-        }
+            my $x = decode ('UTF-8',$r->{name});
+        eval {
+            if ( exists $r->{name}) {
+                $pathfile .= decode('UTF-8',$r->{name});
+            } else {
+                $pathfile = undef;
+            }
+            1;
+        } or do {
+            print STDERR $@;
+            print STDERR Dumper $r;
+            die;
+        };
         push  @return2, $self->mgm->file_from_metadata( $r, pathfile=>$pathfile );
         $pathfile .= '/';
     }
