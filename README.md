@@ -7,3 +7,8 @@ Kan du kjøre scriptet: script/google-drive-init.pl
 
 Det refresher token. Men du må åpne en nettleser til localhost:8082 og logge deg på google.
 Dette er vanlig etter at perl eller  perl modulene er oppdatert.
+
+# SETUP
+mkdir ~/googledrive
+mkdir ~/etc
+touch ~/etc/googledrive.yml
