@@ -70,15 +70,21 @@ has state_file => sub {
     if (! -e "$dir" && -l "$dir" ) {
         die "$dir is a broken symlink.";
     }
-    $dir->make_path->child('googledrive.yml')->touch
+    $dir->make_path;
+    my $file = $dir->child('googledrive.yml');
+    $file->touch unless -e $file;
+    return $file;
 };
 has 'debug';
 has state => sub {
     my $self =shift;
     my $state = {};
-    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
-        $state = YAML::Syck::LoadFile($self->state_file->to_string );
+    my $sf = $self->state_file;
+    if (-f $sf->to_string && ! -z $sf->to_string) {
+        my $data = YAML::Syck::LoadFile($sf->to_string);
+        $state = $data if ref $data eq 'HASH';
     }
+    $state->{last_sync_epoch} //= 0;
     return $state;
 };
 has metadata_all => sub{{}};
@@ -562,8 +568,17 @@ sub _read_from_epoch($self) {
     # read old from epoch file and store for return on end of sub
 
     my $old_from_epoch = 0;
-    if (-f $self->state_file->to_string && ! -z $self->state_file->to_string) {
-        $old_from_epoch = YAML::Syck::LoadFile($self->state_file->to_string)->{last_sync_epoch};
+    my $state_file = $self->state_file;
+    
+    # Ensure directory and file exist
+    $state_file->dirname->make_path;
+    if (! -e $state_file->to_string) {
+        $state_file->touch;
+    }
+    
+    if (-f $state_file->to_string && ! -z $state_file->to_string) {
+        my $data = YAML::Syck::LoadFile($state_file->to_string);
+        $old_from_epoch = $data->{last_sync_epoch} // 0 if ref $data eq 'HASH';
     }
     # read new from epoch file and store for write in _end_tasks
     $new_from_epoch = time() if ! $new_from_epoch;

@@ -96,6 +96,34 @@ sub simple_argv {
 # MAIN
 
 my $config = simple_argv(@ARGV);
+
+# Handle --help before creating any objects
+if ($config->{help}) {
+    print <<"HELP";
+gd-sync - Sync local directory with Google Drive
+
+USAGE:
+    gd-sync.pl [COMMAND] [OPTIONS]
+
+COMMANDS:
+    (no command)   Normal sync with remote Google Drive
+    dryrun         Only print changes, don't sync
+    force          Force sync even if not needed
+    init           Download all files from Google Drive
+
+OPTIONS:
+    --debug        Enable debug output
+
+EXAMPLES:
+    gd-sync.pl                 # Normal sync
+    gd-sync.pl dryrun          # Preview changes
+    gd-sync.pl force           # Force sync
+    gd-sync.pl --debug         # Debug output
+
+HELP
+    exit 0;
+}
+
 my $o = Mojo::GoogleDrive::Mirror->new(local_root=>"$ENV{HOME}/googledrive", remote_root=>'/', %$config);
 #say $o->is_needing_sync() ? 'Need sync now' : 'No need for sync';
 if ($o->is_needing_sync()) {
