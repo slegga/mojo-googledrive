@@ -9,6 +9,7 @@ Det refresher token. Men du må åpne en nettleser til localhost:8082 og logge d
 Dette er vanlig etter at perl eller  perl modulene er oppdatert.
 
 # SETUP
-mkdir ~/googledrive
-mkdir ~/etc
-touch ~/etc/googledrive.yml
+`mkdir ~/googledrive`
+`mkdir ~/etc`
+Kopier fra en gammel maskin ~/.google-drive.yml eller generer dette fra google eller søk etter google i cpan.org
+`gd-sync.pl init`

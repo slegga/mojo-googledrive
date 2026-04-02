@@ -1,10 +1,1 @@
-# To install modules:    cat PERL-MODULES.txt|cpanm -i
-Mojo::Base
-Role:tiny
-File::MMagic
-Data::Printer
-Const::Fast
-Hash::Merge
-OAuth::Cmdline::GoogleDrive
-YAML::Syck
-LWP::Protocol::https
+Digest::MD5::File
