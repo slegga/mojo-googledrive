@@ -375,35 +375,29 @@ sub clean_remote_duplicates($self) {
         my $id = join('/',($f->{parents}->[0]//'__UNDEF__'),$f->{name},($f->{md5Checksum}//'__UNDEF__'));
         push @{$files_h{$id}}, $f;
     }
-# delete newer versions of a file.
-    for my $k(keys %files_h) {
-        if (scalar @{$files_h{$k}} > 1) {
+# delete newer duplicates, keep the oldest copy of each.
+    for my $k (keys %files_h) {
+        my @dups = @{ $files_h{$k} };
+        next if @dups < 2;
 
-            # get min date
-            my $min='ZZ';
-            for my $dup(@{$files_h{$k}}) {
-                if ($min gt $dup->{modifiedTime}) {
-                    $min = $dup;
-                }
+        # All entries in a group share parent+name+md5 (byte-identical),
+        # so keep the oldest by modifiedTime (ISO-8601 sorts chronologically)
+        # and delete the rest.
+        my ($keep, @rest) = sort {
+            ($a->{modifiedTime} // '') cmp ($b->{modifiedTime} // '')
+        } @dups;
+
+        my $deleted_count = 0;
+        for my $dup (@rest) {
+            my $res = $self->http_request('delete', $self->api_file_url . $dup->{id});
+            if ($res) {
+                say STDERR $k;
+                warn Dumper $res;
+                die;
             }
-            return if $min eq 'ZZ';
-            # delete all newer versions
-            my $deleted_count = 0;
-            for my $dup(@{$files_h{$k}}) {
-                if ($min ne $dup->{modifiedTime}) {
-                    my $res = $self->http_request('delete',$self->api_file_url . $dup->{id});
-                    if ($res) {
-                        say STDERR $k;
-                        warn Dumper $res ;
-                        die;
-                    }
-
-                }
-                $deleted_count++;
-            }
-            say "#        Deleted count ".$deleted_count;
-
+            $deleted_count++;
         }
+        say "#        Deleted count " . $deleted_count;
     }
 
     # Look for empty files

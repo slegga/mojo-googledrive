@@ -44,9 +44,6 @@ if( -e $gfile ) {
     say Dumper $data;
     $client_id = $data->{client_id};
     $client_secret = $data->{client_secret};
-    say `cp $gfile /tmp -v`;
-#    die;
-
 }
 my $oauth = OAuth::Cmdline::GoogleDrive->new(
     client_id     => $client_id,

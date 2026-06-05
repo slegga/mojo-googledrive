@@ -1,7 +1,7 @@
 # To install modules:    cat PERL-MODULES.txt|cpanm -i
 Digest::MD5::File
-Mojo::Base
-Role:tiny
+Mojolicious
+Role::Tiny
 File::MMagic
 Data::Printer
 Const::Fast

@@ -9,7 +9,6 @@ use Mojo::JSON qw /true false to_json from_json/;
 use Data::Dumper;
 use Data::Printer;
 use Mojo::Collection;
-use Mojo::GoogleDrive::Mirror;
 use open qw(:std :utf8);
 use utf8;
 use Digest::MD5 'md5_hex';
@@ -62,7 +61,9 @@ has 'last_message';
 #has 'sync_direction';# => 'both-cloud'; # both ways clound wins if in conflict
 has 'metadata' => sub{{}};
 #has ua => sub { Mojo::UserAgent->new};
-has mgm => sub { Mojo::GoogleDrive::Mirror->new()};
+# Load the parent lazily with require (not a top-level `use`) to break the
+# Mirror <-> Mirror::File circular dependency. See AGENTS.md. Keep as require.
+has mgm => sub { require Mojo::GoogleDrive::Mirror; Mojo::GoogleDrive::Mirror->new() };
 has 'debug';
 =head2 INTERESTING_FIELDS
 
@@ -307,7 +308,6 @@ sub upload {
             use bytes;
             $byte_size = length($local_file_content);
     }
-$DB::single = 2;
     my $metadata = $self->get_metadata;
     my $mcontent = {name=>encode('UTF-8',$metadata->{name})};
 
@@ -681,7 +681,6 @@ say STDERR '---';
         say STDERR "Remote: ".$self->rfile->to_string;
         say STDERR "Local: ".$self->lfile->to_string;
         my $pathr = $self->path_resolve;
-        $DB::single = 2;
         $meta =  $self->get_metadata;
         say STDERR Dumper $meta;
         p $self;

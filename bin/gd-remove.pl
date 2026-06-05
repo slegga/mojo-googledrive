@@ -16,8 +16,7 @@ use Encode 'decode';
 
 # REMOVE FILE FROM REMOTE
 
-die "Must have have a file as an argument" if ! $ARGV[0];
-die "Must have have a file as an argument" if ! $ARGV[0];
+die "Must have a file as an argument" if ! $ARGV[0];
 
 
 my $o = Mojo::GoogleDrive::Mirror->new(remote_root=>'/');
